@@ -1,0 +1,13 @@
+@media (max-width: 768px) {
+  .mainContent {
+    padding: 16px;
+  }
+
+  .absenGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

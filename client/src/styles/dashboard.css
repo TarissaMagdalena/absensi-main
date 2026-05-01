@@ -1,0 +1,55 @@
+.welcomeCard {
+  background: white;
+  padding: 28px 40px;
+  border-radius: 20px;
+  margin-bottom: 35px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.welcomeCard h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.absenGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 35px;
+}
+
+.card {
+  padding: 30px;
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+.card.green {
+  background: #22c55e;
+}
+
+.card.red {
+  background: #ef4444;
+}
+
+.activityCard {
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #e2e8f0;
+  padding: 18px;
+  border-radius: 15px;
+}

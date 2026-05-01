@@ -1,0 +1,16 @@
+.profileCard {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+}
+
+.profileTabs {
+  display: flex;
+  gap: 15px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}

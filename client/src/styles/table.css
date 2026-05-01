@@ -1,0 +1,26 @@
+.tableCard {
+  background: #f5f5f5;
+  border-radius: 20px;
+  padding: 30px;
+}
+
+.pegawaiTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pegawaiTable th {
+  padding: 16px;
+  background: #e0e0e0;
+}
+
+.pegawaiTable td {
+  padding: 16px;
+  border-bottom: 1px solid #ddd;
+}
+
+.statusBadge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+}

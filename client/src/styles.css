@@ -1,0 +1,808 @@
+/* ===== RESET ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background-color: #f4f6fb;
+}
+
+/* ===== PAGE ===== */
+.loginPage {
+  height: 100vh;
+  display: flex;
+  justify-content: center; /* center horizontal */
+  align-items: center; /* center vertical */
+  position: relative;
+}
+
+/* ===== BRAND ===== */
+.brandTop {
+  position: absolute;
+  top: 40px;
+  left: 60px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #1c2b4a;
+}
+
+/* ===== FORM ===== */
+.formWrapper {
+  width: 100%;
+  max-width: 380px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 40px;
+  color: #1c2b4a;
+}
+
+.inputGroup {
+  margin-bottom: 25px;
+}
+
+.inputGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1c2b4a;
+}
+
+.input {
+  width: 100%;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1.5px solid #d0d4e0;
+  font-size: 16px;
+}
+
+.passwordWrapper {
+  position: relative;
+}
+
+.eye {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+
+  font-size: 22px; /* memperbesar icon */
+  padding: 6px; /* memperbesar area klik */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn {
+  display: block;
+  margin: 35px auto 0;
+  width: 150px;
+  padding: 15px;
+  border-radius: 20px;
+  border: none;
+  background-color: #1c2b4a;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ================= DASHBOARD ================= */
+
+.dashboardLayout {
+  display: flex;
+  height: 100vh;
+  background-color: #f3f4f6;
+}
+
+/* ===== MAIN ===== */
+
+.mainContent {
+  flex: 1;
+  padding: 40px 60px;
+}
+
+/* ============================= */
+/* PAGE CONTENT */
+/* ============================= */
+
+.pageContent {
+  padding: 25px;
+}
+
+/* ============================= */
+/* MOBILE RESPONSIVE */
+/* ============================= */
+
+@media (max-width: 768px) {
+  /* SIDEBAR HIDDEN */
+
+  .sidebar {
+    left: -240px;
+  }
+
+  /* SIDEBAR OPEN */
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* CONTENT FULL WIDTH */
+
+  .mainContent {
+    margin-left: 0;
+  }
+}
+
+/* ===== WELCOME ===== */
+
+.welcomeCard {
+  background: #ffffff;
+  padding: 28px 40px;
+  border-radius: 20px;
+  margin-bottom: 35px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.welcomeCard h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* ===== ABSEN CARDS ===== */
+
+.absenGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 35px;
+}
+
+.card {
+  padding: 30px;
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.card h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.card h1 {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.card.green {
+  background: #22c55e;
+}
+
+.card.red {
+  background: #ef4444;
+}
+
+/* ===== ACTIVITY ===== */
+
+.activityCard {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.activityCard h3 {
+  margin-bottom: 20px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #e2e8f0;
+  padding: 18px;
+  border-radius: 15px;
+}
+
+.card {
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+/* ================= RESPONSIVE ================= */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .mainContent {
+    padding: 30px;
+  }
+
+  .absenGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .dashboardLayout {
+    flex-direction: column;
+  }
+
+  /* Sidebar jadi atas */
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .logo {
+    margin-bottom: 0;
+    font-size: 22px;
+  }
+
+  .profile,
+  .menu,
+  .logout {
+    display: none; /* disembunyikan dulu supaya clean */
+  }
+
+  .mainContent {
+    padding: 20px;
+  }
+
+  .welcomeCard {
+    padding: 20px;
+  }
+
+  .welcomeCard h2 {
+    font-size: 18px;
+  }
+
+  .card h1 {
+    font-size: 24px;
+  }
+
+  .absenGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+/* ================= BOTTOM NAV MOBILE ================= */
+
+.bottomNav {
+  display: none;
+}
+
+.dashboardLayout {
+  padding-bottom: 70px;
+}
+
+.bottomNav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.bottomItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px; /* Ukuran teks sama */
+  font-weight: 500; /* Semua sama */
+  color: #6b7280;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.bottomIcon {
+  font-size: 20px; /* Semua icon sama */
+  margin-bottom: 4px;
+}
+
+.bottomItem span {
+  font-size: 12px; /* Paksa ukuran sama */
+}
+
+.bottomItem.active {
+  color: #1c2b4a;
+  position: relative;
+}
+
+.bottomItem.active::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  width: 30px;
+  height: 3px;
+  background: #1c2b4a;
+  border-radius: 3px;
+}
+
+/* ================= MODAL ================= */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modalBox {
+  background: white;
+  padding: 30px;
+  width: 350px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modalBox h3 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.modalBox label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.modalBox select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  margin-bottom: 20px;
+}
+
+.modalButtons {
+  display: flex;
+  justify-content: space-between;
+}
+
+.btnCancel {
+  flex: 1;
+  margin-right: 10px;
+  padding: 10px;
+  background: #ef4444;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+}
+
+.btnSave {
+  flex: 1;
+  padding: 10px;
+  background: #22c55e;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+}
+
+/* ================= MAIN CONTENT ================= */
+.mainContent {
+  padding: 30px 40px;
+}
+
+/* ================= TOP SECTION ================= */
+.topSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 35px;
+  gap: 40px;
+}
+
+.leftSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* SUMMARY lebih rapat */
+.summarySection {
+  display: flex;
+  gap: 20px;
+}
+
+/* Filter rata kanan */
+.filterSection {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-top: 45px; /* supaya sejajar dengan summary */
+}
+
+.filterSection select,
+.filterSection input {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: white;
+  min-width: 150px;
+}
+
+/* ================= PAGE HEADER ================= */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.pageHeader h2 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* ================= FILTER SECTION ================= */
+.filterSection {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.filterSection select,
+.filterSection input {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 14px;
+  min-width: 140px;
+}
+
+.downloadBtn {
+  background: #cfe2f3;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.downloadBtn:hover {
+  background: #b6d4f0;
+}
+
+/* ================= SUMMARY ================= */
+.summarySection {
+  display: flex;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+.summaryCard {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  min-width: 160px;
+}
+
+.summaryCard:hover {
+  transform: translateY(-3px);
+}
+
+.summaryCard h4 {
+  font-size: 14px;
+  color: #555;
+}
+
+.summaryCard h2 {
+  margin-top: 8px;
+  font-size: 24px;
+}
+
+/* ================= TABLE CARD ================= */
+.tableCard {
+  background: #f5f5f5;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* ================= TABLE ================= */
+.pegawaiTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pegawaiTable thead {
+  background: #e0e0e0;
+  border-radius: 10px;
+}
+
+.pegawaiTable th {
+  padding: 16px 18px;
+  font-size: 14px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.pegawaiTable td {
+  padding: 16px 18px;
+  font-size: 14px;
+  border-bottom: 1px solid #ddd;
+}
+
+.pegawaiTable tbody tr:hover {
+  background: #fafafa;
+}
+
+/* ================= BADGES ================= */
+.statusBadge,
+.lokasiBadge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Status */
+.hadir {
+  background: #d4edda;
+  color: #155724;
+}
+
+.izin {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.sakit {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.cuti {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+/* Terlambat */
+.terlambat {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+/* Lokasi */
+.kantor {
+  background: #d4edda;
+  color: #155724;
+}
+
+.luar-area {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ===================== */
+/* GLOBAL LAYOUT */
+/* ===================== */
+
+.dashboardLayout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* MAIN CONTENT */
+
+.mainContent {
+  flex: 1;
+  padding: 30px;
+}
+
+/* GRID DASHBOARD */
+
+.absenGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* TABLE */
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* ===================== */
+/* RESPONSIVE UNIVERSAL */
+/* ===================== */
+
+@media (max-width: 768px) {
+  /* SIDEBAR HILANG */
+  .sidebar {
+    display: none;
+  }
+
+  /* CONTENT FULL WIDTH */
+  .mainContent {
+    padding: 16px;
+  }
+
+  /* CARD GRID */
+  .absenGrid {
+    grid-template-columns: 1fr;
+  }
+
+  /* STAT CARD */
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  /* FILTER */
+  .filterSection {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .filterSection select,
+  .filterSection input,
+  .filterSection button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .brandTop {
+    left: 20px;
+    top: 20px;
+    font-size: 22px;
+  }
+
+  .formWrapper {
+    width: 90%;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+table {
+  min-width: 700px;
+}
+
+/* ========================= */
+/* PROFILE PAGE */
+/* ========================= */
+
+.pageTitle {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.profileCard {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+}
+
+.profileHeader {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profileAvatar {
+  font-size: 60px;
+}
+
+.profileFormCard {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+}
+
+.profileTabs {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.profileTabs button {
+  padding: 10px 18px;
+  border: none;
+  background: #f2f4f7;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: #1c2b4a;
+  color: white;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.inputGroup input {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.inputGroup.full {
+  grid-column: span 2;
+}
+
+.profileButtons {
+  margin-top: 20px;
+  display: flex;
+  gap: 15px;
+}
+
+.btnEdit {
+  background: #f39c12;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+}
+
+.btnSave {
+  background: #27ae60;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+}

@@ -1,0 +1,637 @@
+   {/* ================= AKTIVITAS ================= */}
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography fontWeight="bold" mb={2}>
+              Aktivitas Terbaru
+            </Typography>
+
+            <Box
+              sx={{
+                backgroundColor: "#e2e8f0",
+                p: 2,
+                borderRadius: 2,
+              }}
+            >
+              <Typography fontWeight="bold">
+                {new Date().toLocaleDateString("id-ID")}
+              </Typography>
+              <Typography fontSize={13}>
+                {new Date().toLocaleTimeString("id-ID")}
+              </Typography>
+            </Box>
+          </Paper>
+        </Box>
+
+
+code sidebarpegawai:
+import {
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+  Box,
+  Divider,
+} from "@mui/material";
+
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import HistoryIcon from "@mui/icons-material/History";
+import LogoutIcon from "@mui/icons-material/Logout";
+import PersonIcon from "@mui/icons-material/Person";
+
+import { useNavigate, useLocation } from "react-router-dom";
+
+export default function SidebarPegawai() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const iconStyle = {
+    fontSize: 26,
+    color: "#555",
+    minWidth: 0,
+  };
+
+  const menu = [
+    {
+      text: "Dashboard",
+      icon: <DashboardIcon sx={iconStyle} />,
+      path: "/dashboard",
+    },
+    {
+      text: "Riwayat Absensi",
+      icon: <HistoryIcon sx={iconStyle} />,
+      path: "/riwayat",
+    },
+  ];
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: 240,
+        flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: 240,
+          boxSizing: "border-box",
+        },
+      }}
+    >
+      {/* LOGO */}
+      <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
+        <Typography variant="h5" fontWeight="bold">
+          E-Absen
+        </Typography>
+      </Box>
+
+      <Divider />
+
+      {/* PROFILE (🔥 FIXED) */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          p: 2,
+        }}
+      >
+        <PersonIcon
+          sx={{
+            fontSize: 26,
+            color: "#555",
+            backgroundColor: "#e5e7eb",
+            borderRadius: "50%",
+            p: 0.7,
+          }}
+        />
+
+        <Box>
+          <Typography fontSize={14} fontWeight="bold">
+            Tarissa Magdalena
+          </Typography>
+          <Typography fontSize={12} color="text.secondary">
+            NIK: 0987654321111
+          </Typography>
+        </Box>
+      </Box>
+
+      <Divider />
+
+      {/* MENU */}
+      <List>
+        {menu.map((item, index) => {
+          const active = location.pathname === item.path;
+
+          return (
+            <ListItemButton
+              key={index}
+              onClick={() => navigate(item.path)}
+              sx={{
+                background: active ? "#e3f2fd" : "transparent",
+                borderRadius: 2,
+                mx: 1,
+                mb: 1,
+                gap: 2, // 🔥 penting biar sejajar
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
+
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{ fontSize: 14 }}
+              />
+            </ListItemButton>
+          );
+        })}
+      </List>
+
+      <Divider />
+
+      {/* LOGOUT */}
+      <Box mt="auto">
+        <List>
+          <ListItemButton
+            onClick={() => navigate("/")}
+            sx={{ mx: 1, mb: 1, gap: 2 }}
+          >
+            <ListItemIcon sx={{ minWidth: 0 }}>
+              <LogoutIcon sx={iconStyle} />
+            </ListItemIcon>
+
+            <ListItemText
+              primary="Keluar"
+              primaryTypographyProps={{ fontSize: 14 }}
+            />
+          </ListItemButton>
+        </List>
+      </Box>
+    </Drawer>
+  );
+}
+
+code sidebarAdmin:
+import { useNavigate } from "react-router-dom";
+
+import {
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+  Box,
+  Divider,
+} from "@mui/material";
+
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import FolderIcon from "@mui/icons-material/Folder";
+import DescriptionIcon from "@mui/icons-material/Description";
+import PeopleIcon from "@mui/icons-material/People";
+import SettingsIcon from "@mui/icons-material/Settings";
+import LogoutIcon from "@mui/icons-material/Logout";
+import PersonIcon from "@mui/icons-material/Person";
+
+export default function SidebarAdmin() {
+  const navigate = useNavigate();
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: 240,
+        flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: 240,
+          boxSizing: "border-box",
+        },
+      }}
+    >
+      <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
+        <Typography variant="h5" fontWeight="bold">
+          E-Absen
+        </Typography>
+      </Box>
+
+      <Divider />
+
+      {/* Profile */}
+      <Box sx={{ display: "flex", alignItems: "center", p: 2 }}>
+        <PersonIcon sx={{ mr: 1 }} />
+        <Typography fontSize={16} fontWeight="bold">
+          Admin
+        </Typography>
+      </Box>
+
+      <Divider />
+
+      {/* Menu */}
+      <List>
+        <ListItemButton onClick={() => navigate("/admin/dashboard")}>
+          <ListItemIcon>
+            <DashboardIcon />
+          </ListItemIcon>
+          <ListItemText primary="Dashboard" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/jadwal")}>
+          <ListItemIcon>
+            <AccessTimeIcon />
+          </ListItemIcon>
+          <ListItemText primary="Jadwal Shift" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/absensi")}>
+          <ListItemIcon>
+            <FolderIcon />
+          </ListItemIcon>
+          <ListItemText primary="Data Absensi" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/laporan")}>
+          <ListItemIcon>
+            <DescriptionIcon />
+          </ListItemIcon>
+          <ListItemText primary="Laporan Absensi" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/datapegawai")}>
+          <ListItemIcon>
+            <PeopleIcon />
+          </ListItemIcon>
+          <ListItemText primary="Data Pegawai" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/akun")}>
+          <ListItemIcon>
+            <SettingsIcon />
+          </ListItemIcon>
+          <ListItemText primary="Manajemen Akun" />
+        </ListItemButton>
+
+        <ListItemButton onClick={() => navigate("/admin/profil")}>
+          <ListItemIcon>
+            <PersonIcon />
+          </ListItemIcon>
+          <ListItemText primary="Profil" />
+        </ListItemButton>
+      </List>
+
+      <Divider />
+
+      {/* LOGOUT */}
+      <Box mt="auto">
+        <List>
+          <ListItemButton onClick={() => navigate("/")}>
+            <ListItemIcon>
+              <LogoutIcon />
+            </ListItemIcon>
+            {open && <ListItemText primary="Keluar" />}
+          </ListItemButton>
+        </List>
+      </Box>
+    </Drawer>
+  );
+}
+
+code jadwalpegawai:
+import { useEffect, useState } from "react";
+import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
+
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  TextField,
+  Button,
+  MenuItem,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+} from "@mui/material";
+
+export default function JadwalPegawai() {
+  const [data, setData] = useState([]);
+  const [form, setForm] = useState({
+    pegawai_id: "",
+    tanggal: "",
+    shift_kode: "",
+  });
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/jadwal")
+      .then((res) => res.json())
+      .then((res) => {
+        console.log("DATA API:", res); // 🔥 debug
+        setData(Array.isArray(res) ? res : res.data || []);
+      })
+      .catch((err) => {
+        console.error("ERROR FETCH:", err);
+        setData([]);
+      });
+  }, []);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async () => {
+    await fetch("http://localhost:5000/api/jadwal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    window.location.reload();
+  };
+
+  const handleDelete = async (id) => {
+    await fetch(`http://localhost:5000/api/jadwal/${id}`, {
+      method: "DELETE",
+    });
+
+    window.location.reload();
+  };
+
+  const formatTanggal = (tgl) => {
+    return new Date(tgl).toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <DashboardLayoutAdmin>
+      <Box>
+        <Typography variant="h5" fontWeight="bold" mb={2}>
+          Jadwal Pegawai
+        </Typography>
+
+        {/* FORM */}
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Pegawai ID"
+                name="pegawai_id"
+                onChange={handleChange}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <TextField
+                type="date"
+                fullWidth
+                name="tanggal"
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Shift"
+                name="shift_kode"
+                sx={{ minWidth: 160 }}
+                onChange={handleChange}
+              >
+                <MenuItem value="P">Pagi</MenuItem>
+                <MenuItem value="S">Siang</MenuItem>
+                <MenuItem value="M">Malam</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleSubmit}
+                sx={{ height: "56px" }}
+              >
+                Simpan Jadwal
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* TABLE */}
+        <Paper sx={{ p: 2, borderRadius: 3 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Pegawai</TableCell>
+                <TableCell>Tanggal</TableCell>
+                <TableCell>Shift</TableCell>
+                <TableCell align="center">Aksi</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {data.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.nama}</TableCell>
+                  <TableCell>{formatTanggal(item.tanggal)}</TableCell>
+                  <TableCell>{item.shift_kode}</TableCell>
+                  <TableCell align="center">
+                    <Button
+                      color="error"
+                      variant="contained"
+                      size="small"
+                      onClick={() => handleDelete(item.id)}
+                    >
+                      Hapus
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Box>
+    </DashboardLayoutAdmin>
+  );
+}
+
+Code DataAbsensi:
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
+
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  MenuItem,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Chip,
+  Grid,
+} from "@mui/material";
+
+export default function DataAbsensi() {
+  const [data, setData] = useState([]);
+  const [search, setSearch] = useState("");
+  const [tanggal, setTanggal] = useState("");
+  const [status, setStatus] = useState("");
+
+  const fetchData = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/absensi");
+      setData(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const formatTanggal = (tgl) => {
+    return new Date(tgl).toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const filteredData = data.filter((item) => {
+    return (
+      item.nama?.toLowerCase().includes(search.toLowerCase()) &&
+      (tanggal ? item.tanggal.includes(tanggal) : true) &&
+      (status ? item.status === status : true)
+    );
+  });
+
+  const getStatusColor = (status) => {
+    if (status === "Hadir") return "success";
+    if (status === "Terlambat") return "warning";
+    return "error";
+  };
+
+  return (
+    <DashboardLayoutAdmin>
+      <Box>
+        {/* TITLE (SAMAKAN DENGAN JADWAL) */}
+        <Typography variant="h5" fontWeight="bold" mb={2}>
+          Data Absensi
+        </Typography>
+
+        {/* FILTER */}
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                placeholder="Cari Nama Pegawai"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Status"
+                value={status}
+                sx={{ minWidth: 160 }}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <MenuItem value="">Semua</MenuItem>
+                <MenuItem value="Hadir">Hadir</MenuItem>
+                <MenuItem value="Terlambat">Terlambat</MenuItem>
+                <MenuItem value="Alpha">Alpha</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <TextField
+                type="date"
+                fullWidth
+                value={tanggal}
+                onChange={(e) => setTanggal(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={fetchData}
+                sx={{ height: "56px" }}
+              >
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* TABLE */}
+        <Paper sx={{ p: 2, borderRadius: 3 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>No</TableCell>
+                <TableCell>Nama</TableCell>
+                <TableCell>Tanggal</TableCell>
+                <TableCell>Shift</TableCell>
+                <TableCell>Jam Masuk</TableCell>
+                <TableCell>Jam Pulang</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Lokasi</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {filteredData.length > 0 ? (
+                filteredData.map((item, index) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{item.nama}</TableCell>
+                    <TableCell>{formatTanggal(item.tanggal)}</TableCell>
+                    <TableCell>{item.shift_kode || "-"}</TableCell>
+                    <TableCell>{item.jam_masuk || "-"}</TableCell>
+                    <TableCell>{item.jam_pulang || "-"}</TableCell>
+
+                    <TableCell>
+                      <Chip
+                        label={item.status}
+                        color={getStatusColor(item.status)}
+                      />
+                    </TableCell>
+
+                    <TableCell>{item.lokasi || "-"}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    Tidak ada data
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Box>
+    </DashboardLayoutAdmin>
+  );
+}
