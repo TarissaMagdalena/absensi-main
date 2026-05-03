@@ -1,9 +1,19 @@
 import { useState } from "react";
 import axios from "axios";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
-import { Box, Typography, Paper, TextField, Button } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Snackbar,
+  Alert,
+} from "@mui/material";
 
 export default function Pengaturan() {
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const [form, setForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -11,6 +21,11 @@ export default function Pengaturan() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [notif, setNotif] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -18,23 +33,54 @@ export default function Pengaturan() {
 
   const handleSubmit = async () => {
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      alert("Semua field harus diisi!");
+      setNotif({
+        open: true,
+        message: "Semua field harus diisi!",
+        severity: "warning",
+      });
       return;
     }
 
     if (form.newPassword !== form.confirmPassword) {
-      alert("Password baru tidak sama!");
+      setNotif({
+        open: true,
+        message: "Password baru tidak sama!",
+        severity: "warning",
+      });
+      return;
+    }
+
+    if (form.newPassword.length < 6) {
+      setNotif({
+        open: true,
+        message: "Password minimal 6 karakter!",
+        severity: "warning",
+      });
       return;
     }
 
     try {
       setLoading(true);
-      await axios.put("http://localhost:5000/api/auth/change-password", form);
-      alert("Password berhasil diubah!");
+
+      const res = await axios.put(
+        "http://localhost:5000/api/auth/change-password",
+        {
+          user_id: user?.id, // 🔥 kirim user_id dari localStorage
+          currentPassword: form.currentPassword,
+          newPassword: form.newPassword,
+          confirmPassword: form.confirmPassword,
+        },
+      );
+
+      setNotif({
+        open: true,
+        message: "✅ Password berhasil diubah!",
+        severity: "success",
+      });
       setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      console.log(err);
-      alert("Gagal update password!");
+      const msg = err.response?.data?.message || "Gagal update password!";
+      setNotif({ open: true, message: msg, severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -97,6 +143,14 @@ export default function Pengaturan() {
           </Button>
         </Paper>
       </Box>
+
+      <Snackbar
+        open={notif.open}
+        autoHideDuration={3000}
+        onClose={() => setNotif({ ...notif, open: false })}
+      >
+        <Alert severity={notif.severity}>{notif.message}</Alert>
+      </Snackbar>
     </DashboardLayoutAdmin>
   );
 }

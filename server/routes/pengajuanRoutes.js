@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
         p.nama,
         pj.tipe,
         pj.tanggal,
-        pj.keterangan as alasan,
+        pj.keterangan,
         pj.status,
         pj.created_at
       FROM pengajuan pj

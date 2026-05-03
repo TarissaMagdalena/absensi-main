@@ -30,13 +30,30 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Password salah" });
     }
 
+    // 🔥 Ambil pegawai_id dan nik berdasarkan user_id
+    let pegawai_id = null;
+    let nik = null;
+
+    if (user.role === "pegawai") {
+      const [pegawai] = await db.query(
+        "SELECT id, nik FROM pegawai WHERE user_id = ?",
+        [user.id],
+      );
+      if (pegawai.length > 0) {
+        pegawai_id = pegawai[0].id;
+        nik = pegawai[0].nik;
+      }
+    }
+
     res.json({
       message: "Login berhasil",
       user: {
         id: user.id,
+        pegawai_id,
         nama: user.nama,
         email: user.email,
         role: user.role,
+        nik,
       },
     });
   } catch (err) {
@@ -47,9 +64,9 @@ router.post("/login", async (req, res) => {
 
 // ================= GANTI PASSWORD =================
 router.put("/change-password", async (req, res) => {
-  const { currentPassword, newPassword, confirmPassword } = req.body;
+  const { user_id, currentPassword, newPassword, confirmPassword } = req.body;
 
-  if (!currentPassword || !newPassword || !confirmPassword) {
+  if (!user_id || !currentPassword || !newPassword || !confirmPassword) {
     return res.status(400).json({ message: "Semua field harus diisi" });
   }
 
@@ -62,9 +79,9 @@ router.put("/change-password", async (req, res) => {
   }
 
   try {
-    const [rows] = await db.query(
-      "SELECT * FROM users WHERE role = 'admin' LIMIT 1",
-    );
+    const [rows] = await db.query("SELECT * FROM users WHERE id = ?", [
+      user_id,
+    ]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: "User tidak ditemukan" });

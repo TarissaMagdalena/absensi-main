@@ -27,20 +27,30 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/laporan/download?pegawai_id=1&start=...&end=...
+// GET /api/laporan/download
 router.get("/download", async (req, res) => {
   const { pegawai_id, start, end } = req.query;
 
+  if (!pegawai_id || !start || !end) {
+    return res.status(400).json({ message: "Parameter tidak lengkap" });
+  }
+
   try {
+    const [[pegawai]] = await db.query(
+      "SELECT nama FROM pegawai WHERE id = ?",
+      [pegawai_id],
+    );
+
     const [data] = await db.query(
-      `SELECT p.nama, a.tanggal, a.jam_masuk, a.jam_pulang, a.status
+      `SELECT a.tanggal, a.jam_masuk, a.jam_pulang, a.status
        FROM absensi a
-       JOIN pegawai p ON a.pegawai_id = p.id
-       WHERE a.pegawai_id = ? AND a.tanggal BETWEEN ? AND ?`,
+       WHERE a.pegawai_id = ? AND a.tanggal BETWEEN ? AND ?
+       ORDER BY a.tanggal ASC`,
       [pegawai_id, start, end],
     );
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ margin: 40 });
+
     res.setHeader(
       "Content-Disposition",
       "attachment; filename=laporan-absensi.pdf",
@@ -48,16 +58,53 @@ router.get("/download", async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     doc.pipe(res);
 
-    doc.fontSize(18).text("LAPORAN ABSENSI", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(12).text(`Periode: ${start} s/d ${end}`);
-    doc.moveDown();
-    doc.text("Nama | Tanggal | Masuk | Pulang | Status");
+    // Header
+    doc
+      .fontSize(18)
+      .font("Helvetica-Bold")
+      .text("LAPORAN ABSENSI", { align: "center" });
+    doc.moveDown(0.5);
+    doc
+      .fontSize(12)
+      .font("Helvetica")
+      .text(`Nama     : ${pegawai?.nama || "-"}`);
+    doc.text(`Periode  : ${start} s/d ${end}`);
     doc.moveDown();
 
-    data.forEach((item) => {
+    // Summary
+    const hadir = data.filter((d) => d.status === "Hadir").length;
+    const terlambat = data.filter((d) => d.status === "Terlambat").length;
+    const sakit = data.filter((d) => d.status === "Sakit").length;
+    const izin = data.filter((d) => d.status === "Izin").length;
+    const alpha = data.filter((d) => d.status === "Alpha").length;
+
+    doc.font("Helvetica-Bold").text("Rekap:");
+    doc
+      .font("Helvetica")
+      .text(
+        `Hadir: ${hadir} | Terlambat: ${terlambat} | Sakit: ${sakit} | Izin: ${izin} | Alpha: ${alpha}`,
+      );
+    doc.moveDown();
+
+    // Table header
+    doc.font("Helvetica-Bold");
+    doc.text(
+      "No  Tanggal                          Jam Masuk   Jam Pulang   Status",
+    );
+    doc.moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+    doc.moveDown(0.3);
+
+    // Table rows
+    doc.font("Helvetica");
+    data.forEach((item, i) => {
+      const tgl = new Date(item.tanggal).toLocaleDateString("id-ID", {
+        weekday: "short",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
       doc.text(
-        `${item.nama} | ${item.tanggal} | ${item.jam_masuk} | ${item.jam_pulang || "-"} | ${item.status}`,
+        `${String(i + 1).padEnd(4)}${tgl.padEnd(32)}${(item.jam_masuk || "-").padEnd(12)}${(item.jam_pulang || "-").padEnd(13)}${item.status}`,
       );
     });
 

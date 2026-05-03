@@ -1,11 +1,10 @@
 import mysql from "mysql2/promise";
 
-const db = mysql.createPool({
-  host: "localhost",
+export const db = mysql.createPool({
+  host: "127.0.0.1",
   user: "root",
-  password: "", // kosong untuk XAMPP default
+  password: "",
   database: "absensi_db",
 });
 
-export { db };
 export default db;

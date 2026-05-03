@@ -1,137 +1,30 @@
 import express from "express";
 import { db } from "../db.js";
+import { absenMasuk, absenPulang } from "../controllers/absensiController.js";
 
 const router = express.Router();
 
-// 🔥 KONFIGURASI KANTOR
-const OFFICE_LAT = 1.13;
-const OFFICE_LNG = 104.05;
-const MAX_RADIUS = 10000; // meter
-const MAX_ACCURACY = 10000;
-
-// 🔥 HITUNG JARAK (Haversine)
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const toRad = (x) => (x * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 // ================= ABSEN MASUK =================
-router.post("/masuk", (req, res) => {
-  const { pegawai_id, lat, lng, accuracy } = req.body;
-
-  const now = new Date();
-  const tanggal = now.toISOString().split("T")[0];
-  const jam = now.toTimeString().split(" ")[0];
-
-  if (!pegawai_id || !lat || !lng) {
-    return res.status(400).json({ message: "Data tidak lengkap" });
-  }
-
-  const distance = getDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
-
-  if (distance > MAX_RADIUS) {
-    return res.status(400).json({
-      message: "Anda berada di luar area kantor",
-      distance: Math.round(distance),
-    });
-  }
-
-  const cekQuery = `SELECT * FROM absensi WHERE pegawai_id = ? AND tanggal = ?`;
-
-  db.query(cekQuery, [pegawai_id, tanggal], (err, result) => {
-    if (err) return res.status(500).json(err);
-
-    if (result.length > 0) {
-      return res.json({ message: "Sudah absen hari ini" });
-    }
-
-    const qJadwal = `
-      SELECT * FROM jadwal_pegawai
-      WHERE pegawai_id = ? AND tanggal = CURDATE()
-    `;
-
-    db.query(qJadwal, [pegawai_id], (err, jadwal) => {
-      if (err) return res.status(500).json(err);
-
-      if (jadwal.length === 0) {
-        return res.status(400).json({
-          message: "Tidak ada jadwal hari ini",
-          distance: 0,
-        });
-      }
-
-      const shiftKode = jadwal[0].shift_kode;
-
-      db.query(
-        "SELECT * FROM shift WHERE kode=?",
-        [shiftKode],
-        (err, shift) => {
-          if (err) return res.status(500).json(err);
-
-          const shiftData = shift[0];
-          let status = "Hadir";
-          if (jam > shiftData.jam_masuk) status = "Terlambat";
-
-          const qInsert = `
-          INSERT INTO absensi 
-          (pegawai_id, tanggal, jam_masuk, shift_kode, status, latitude, longitude)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-
-          db.query(
-            qInsert,
-            [pegawai_id, tanggal, jam, shiftKode, status, lat, lng],
-            (err) => {
-              if (err) return res.status(500).json(err);
-              res.json({
-                message: "Absen berhasil",
-                status,
-                distance: Math.round(distance),
-                accuracy,
-                jam_masuk: jam,
-              });
-            },
-          );
-        },
-      );
-    });
-  });
-});
+router.post("/masuk", absenMasuk);
 
 // ================= ABSEN PULANG =================
-router.post("/pulang", (req, res) => {
-  const { pegawai_id, lat, lng, accuracy } = req.body;
+router.post("/pulang", absenPulang);
 
-  const now = new Date();
-  const tanggal = now.toISOString().split("T")[0];
-  const jam = now.toTimeString().split(" ")[0];
-
-  if (lat && lng) {
-    const distance = getDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
-    if (distance > MAX_RADIUS) {
-      return res.status(400).json({
-        message: "Anda di luar area kantor",
-        distance: Math.round(distance),
-      });
-    }
+// ================= ABSENSI HARI INI =================
+router.get("/hari-ini", async (req, res) => {
+  try {
+    const { pegawai_id } = req.query;
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Jakarta",
+    });
+    const [rows] = await db.query(
+      "SELECT * FROM absensi WHERE pegawai_id = ? AND tanggal = ?",
+      [pegawai_id, today],
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  const q = `UPDATE absensi SET jam_pulang = ? WHERE pegawai_id = ? AND tanggal = ?`;
-
-  db.query(q, [jam, pegawai_id, tanggal], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Absen pulang berhasil", jam_pulang: jam });
-  });
 });
 
 // ================= GET ALL ABSENSI =================
@@ -141,7 +34,7 @@ router.get("/", async (req, res) => {
       SELECT 
         a.id,
         p.nama,
-        a.tanggal,
+        DATE_FORMAT(a.tanggal, '%Y-%m-%d') as tanggal,
         a.jam_masuk,
         a.jam_pulang,
         a.status,
@@ -159,10 +52,13 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
 // ================= DASHBOARD SUMMARY =================
 router.get("/dashboard-summary", async (req, res) => {
-  const tanggal = req.query.tanggal || new Date().toISOString().split("T")[0];
+  const tanggal =
+    req.query.tanggal ||
+    new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Jakarta",
+    });
 
   try {
     const [[{ total: totalPegawai }]] = await db.query(
@@ -170,7 +66,7 @@ router.get("/dashboard-summary", async (req, res) => {
     );
 
     const [[{ total: hadirHariIni }]] = await db.query(
-      "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ?",
+      "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ? AND status IN ('Hadir', 'Terlambat')",
       [tanggal],
     );
 
@@ -211,6 +107,33 @@ router.get("/dashboard-summary", async (req, res) => {
     });
   } catch (err) {
     console.error("Dashboard summary error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ================= RIWAYAT PER PEGAWAI =================
+router.get("/riwayat/:pegawai_id", async (req, res) => {
+  try {
+    const [data] = await db.query(
+      `SELECT 
+        id,
+        DATE_FORMAT(tanggal, '%Y-%m-%d') as tanggal,
+        jam_masuk,
+        jam_pulang,
+        status,
+        shift_kode,
+        status_area,
+        latitude,
+        longitude,
+        distance,
+        accuracy
+       FROM absensi 
+       WHERE pegawai_id = ? 
+       ORDER BY tanggal DESC`,
+      [req.params.pegawai_id],
+    );
+    res.json(data);
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });

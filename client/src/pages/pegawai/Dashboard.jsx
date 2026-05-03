@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayoutPegawai from "../../layout/DashboardLayoutPegawai";
 import MapAbsensi from "../../components/MapAbsensi";
 
@@ -18,11 +18,12 @@ import {
   Alert,
   Divider,
 } from "@mui/material";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
 
 export default function Dashboard() {
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const [absenMasuk, setAbsenMasuk] = useState(null);
   const [statusMasuk, setStatusMasuk] = useState("Belum Absen");
 
@@ -31,11 +32,10 @@ export default function Dashboard() {
 
   const [showModal, setShowModal] = useState(false);
   const [tipeAbsensi, setTipeAbsensi] = useState("Hadir");
+  const [keterangan, setKeterangan] = useState("");
 
   const [lokasi, setLokasi] = useState(null);
   const [infoLokasi, setInfoLokasi] = useState(null);
-
-  // 🔥 STATE AKTIVITAS
   const [aktivitas, setAktivitas] = useState([]);
 
   const [notif, setNotif] = useState({
@@ -44,8 +44,73 @@ export default function Dashboard() {
     severity: "success",
   });
 
+  // Sesudah — sama, tapi pastikan tipe juga dicek:
   const bolehAbsenPulang =
-    statusMasuk === "Hadir" || statusMasuk === "Terlambat";
+    (statusMasuk === "Hadir" || statusMasuk === "Terlambat") &&
+    statusMasuk !== "Izin" &&
+    statusMasuk !== "Sakit" &&
+    statusMasuk !== "Cuti";
+
+  // ================= FETCH ABSENSI HARI INI =================
+  useEffect(() => {
+    const fetchAbsenHariIni = async () => {
+      if (!user?.pegawai_id) return;
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/absensi/hari-ini?pegawai_id=${user.pegawai_id}`,
+        );
+        const data = await res.json();
+        if (data && data.jam_masuk) {
+          setAbsenMasuk(data.jam_masuk);
+          setStatusMasuk(data.status);
+          setInfoLokasi({ dalamArea: data.status_area === "DALAM" });
+
+          // Tambah ke aktivitas
+          setAktivitas((prev) => {
+            const sudahAda = prev.find((a) => a.tipe === "masuk");
+            if (sudahAda) return prev;
+            return [
+              {
+                id: "masuk-db",
+                tipe: "masuk",
+                label: "Absen Masuk",
+                jam: data.jam_masuk,
+                status: data.status,
+                keterangan:
+                  data.status_area === "DALAM"
+                    ? "Dalam Area Kantor"
+                    : "Di Luar Area Kantor",
+              },
+              ...prev,
+            ];
+          });
+        }
+        if (data && data.jam_pulang) {
+          setAbsenPulang(data.jam_pulang);
+          setStatusPulang("Selesai");
+
+          setAktivitas((prev) => {
+            const sudahAda = prev.find((a) => a.tipe === "pulang");
+            if (sudahAda) return prev;
+            return [
+              {
+                id: "pulang-db",
+                tipe: "pulang",
+                label: "Absen Pulang",
+                jam: data.jam_pulang,
+                status: "Selesai",
+                keterangan: "Jam pulang tercatat",
+              },
+              ...prev,
+            ];
+          });
+        }
+      } catch (err) {
+        console.error("Gagal fetch absen hari ini:", err);
+      }
+    };
+    fetchAbsenHariIni();
+  }, []);
 
   // ================= ABSEN MASUK =================
   const handleSubmitAbsensi = async () => {
@@ -63,15 +128,17 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pegawai_id: 1,
+          pegawai_id: user?.pegawai_id,
           lat: lokasi.lat,
           lng: lokasi.lng,
           accuracy: lokasi.accuracy,
           tipe: tipeAbsensi,
+          keterangan,
         }),
       });
 
       const data = await res.json();
+      console.log("✅ Response:", res.status, data);
 
       if (!res.ok) {
         setNotif({ open: true, message: data.message, severity: "warning" });
@@ -84,19 +151,14 @@ export default function Dashboard() {
         new Date().toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: "Asia/Jakarta",
         });
 
       const statusBaru = data.status || tipeAbsensi;
 
       setAbsenMasuk(jamMasuk);
       setStatusMasuk(statusBaru);
-
-      setInfoLokasi({
-        distance: data.distance,
-        dalamArea: data.dalam_area,
-      });
-
-      // 🔥 TAMBAH AKTIVITAS MASUK
+      setInfoLokasi({ distance: data.distance, dalamArea: data.dalam_area });
       setAktivitas((prev) => [
         {
           id: Date.now(),
@@ -112,13 +174,15 @@ export default function Dashboard() {
       ]);
 
       setShowModal(false);
+      setKeterangan("");
       setNotif({
         open: true,
         message: "✅ Absensi masuk berhasil",
         severity: "success",
       });
     } catch (err) {
-      console.error("Error absen masuk:", err);
+      console.error("❌ Error absen masuk:", err);
+      setShowModal(false);
       setNotif({
         open: true,
         message: "Gagal terhubung ke server",
@@ -133,7 +197,7 @@ export default function Dashboard() {
       const res = await fetch("http://localhost:5000/api/absensi/pulang", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pegawai_id: 1 }),
+        body: JSON.stringify({ pegawai_id: user?.pegawai_id }),
       });
 
       const data = await res.json();
@@ -148,12 +212,11 @@ export default function Dashboard() {
         new Date().toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: "Asia/Jakarta",
         });
 
       setAbsenPulang(jamPulang);
       setStatusPulang("Selesai");
-
-      // 🔥 TAMBAH AKTIVITAS PULANG
       setAktivitas((prev) => [
         {
           id: Date.now(),
@@ -172,6 +235,7 @@ export default function Dashboard() {
         severity: "success",
       });
     } catch (err) {
+      console.error("❌ Error absen pulang:", err);
       setNotif({
         open: true,
         message: "Gagal terhubung ke server",
@@ -180,32 +244,30 @@ export default function Dashboard() {
     }
   };
 
-  // Format tanggal hari ini
   const hariIni = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   });
 
   return (
     <DashboardLayoutPegawai>
       <Box>
         <Typography variant="h5" fontWeight="bold" mb={2}>
-          Selamat Datang, Tarissa!
+          Selamat Datang, {user?.nama || "Pegawai"}!
         </Typography>
 
         <Box display="flex" flexDirection="column" gap={3}>
           {/* MAP */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
             <MapAbsensi onLocation={setLokasi} />
-
             {lokasi && (
               <Typography fontSize={13} mt={1}>
                 📍 Akurasi: ±{Math.round(lokasi.accuracy)} meter
               </Typography>
             )}
-
             {infoLokasi && (
               <Chip
                 label={
@@ -279,7 +341,7 @@ export default function Dashboard() {
             </Paper>
           </Box>
 
-          {/* 🔥 AKTIVITAS HARI INI */}
+          {/* AKTIVITAS HARI INI */}
           <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Typography fontWeight="bold" mb={1}>
               Aktivitas Hari Ini
@@ -316,14 +378,11 @@ export default function Dashboard() {
                           item.tipe === "masuk" ? "#e8f5e9" : "#fce4ec",
                       }}
                     >
-                      {/* ICON */}
                       {item.tipe === "masuk" ? (
                         <LoginIcon sx={{ color: "#2e7d32" }} />
                       ) : (
                         <LogoutIcon sx={{ color: "#c62828" }} />
                       )}
-
-                      {/* INFO */}
                       <Box flex={1}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.label}
@@ -332,8 +391,6 @@ export default function Dashboard() {
                           {item.keterangan}
                         </Typography>
                       </Box>
-
-                      {/* JAM & STATUS */}
                       <Box textAlign="right">
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.jam}
@@ -362,24 +419,124 @@ export default function Dashboard() {
         </Box>
 
         {/* MODAL */}
-        <Dialog open={showModal} onClose={() => setShowModal(false)}>
-          <DialogTitle>Absensi Hari Ini</DialogTitle>
-          <DialogContent>
-            <TextField
-              select
-              fullWidth
-              value={tipeAbsensi}
-              onChange={(e) => setTipeAbsensi(e.target.value)}
-              sx={{ mt: 2 }}
-            >
-              <MenuItem value="Hadir">Hadir</MenuItem>
-              <MenuItem value="Izin">Izin</MenuItem>
-              <MenuItem value="Sakit">Sakit</MenuItem>
-            </TextField>
+        <Dialog
+          open={showModal}
+          onClose={() => setShowModal(false)}
+          PaperProps={{ sx: { borderRadius: 3, minWidth: 340 } }}
+        >
+          <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
+            📋 Absensi Hari Ini
+          </DialogTitle>
+
+          <Divider />
+
+          <DialogContent sx={{ pt: 2 }}>
+            <Typography fontSize={13} color="text.secondary" mb={2}>
+              Pilih tipe kehadiran kamu hari ini
+            </Typography>
+
+            {/* PILIHAN TIPE — pakai tombol bukan dropdown */}
+            <Box display="flex" flexDirection="column" gap={1.5}>
+              {[
+                {
+                  value: "Hadir",
+                  icon: "✅",
+                  desc: "Hadir dan bekerja normal",
+                },
+                {
+                  value: "Sakit",
+                  icon: "🤒",
+                  desc: "Tidak hadir karena sakit",
+                },
+                { value: "Izin", icon: "📝", desc: "Tidak hadir dengan izin" },
+                { value: "Cuti", icon: "🏖️", desc: "Mengambil hari cuti" },
+              ].map((item) => (
+                <Box
+                  key={item.value}
+                  onClick={() => {
+                    setTipeAbsensi(item.value);
+                    setKeterangan("");
+                  }}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: "2px solid",
+                    borderColor:
+                      tipeAbsensi === item.value ? "#1976d2" : "#e0e0e0",
+                    backgroundColor:
+                      tipeAbsensi === item.value ? "#e3f2fd" : "#fafafa",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    transition: "all 0.2s",
+                    "&:hover": {
+                      borderColor: "#1976d2",
+                      backgroundColor: "#f0f7ff",
+                    },
+                  }}
+                >
+                  <Typography fontSize={22}>{item.icon}</Typography>
+                  <Box>
+                    <Typography fontWeight="bold" fontSize={14}>
+                      {item.value}
+                    </Typography>
+                    <Typography fontSize={12} color="text.secondary">
+                      {item.desc}
+                    </Typography>
+                  </Box>
+                  {tipeAbsensi === item.value && (
+                    <Box ml="auto">
+                      <Typography color="primary" fontWeight="bold">
+                        ✓
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </Box>
+
+            {/* Keterangan muncul untuk Sakit/Izin/Cuti */}
+            {(tipeAbsensi === "Izin" ||
+              tipeAbsensi === "Sakit" ||
+              tipeAbsensi === "Cuti") && (
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                label="Keterangan"
+                placeholder={
+                  tipeAbsensi === "Sakit"
+                    ? "Contoh: Demam, flu, dll..."
+                    : tipeAbsensi === "Izin"
+                      ? "Contoh: Urusan keluarga..."
+                      : "Contoh: Cuti tahunan..."
+                }
+                value={keterangan}
+                onChange={(e) => setKeterangan(e.target.value)}
+                sx={{ mt: 2 }}
+              />
+            )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowModal(false)}>Batal</Button>
-            <Button variant="contained" onClick={handleSubmitAbsensi}>
+
+          <Divider />
+
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button
+              onClick={() => {
+                setShowModal(false);
+                setKeterangan("");
+              }}
+              variant="outlined"
+              sx={{ borderRadius: 2, flex: 1 }}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmitAbsensi}
+              sx={{ borderRadius: 2, flex: 1 }}
+            >
               Simpan
             </Button>
           </DialogActions>

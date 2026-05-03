@@ -21,27 +21,17 @@ import {
   Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
 
 export default function DataPegawai() {
   const [pegawai, setPegawai] = useState([]);
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editData, setEditData] = useState(null);
   const [notif, setNotif] = useState({
     open: false,
     message: "",
     severity: "success",
-  });
-
-  const [form, setForm] = useState({
-    nama: "",
-    nik: "",
-    no_hp: "",
-    email: "",
-    alamat: "",
   });
 
   // ================= GET DATA =================
@@ -65,32 +55,6 @@ export default function DataPegawai() {
       p.nik?.toLowerCase().includes(search.toLowerCase()) ||
       p.email?.toLowerCase().includes(search.toLowerCase()),
   );
-
-  // ================= TAMBAH =================
-  const handleSubmit = async () => {
-    if (!form.nama || !form.nik) {
-      setNotif({
-        open: true,
-        message: "Nama dan NIK wajib diisi",
-        severity: "warning",
-      });
-      return;
-    }
-    try {
-      await axios.post("http://localhost:5000/api/pegawai", form);
-      setNotif({
-        open: true,
-        message: "✅ Pegawai berhasil ditambahkan",
-        severity: "success",
-      });
-      setOpen(false);
-      setForm({ nama: "", nik: "", no_hp: "", email: "", alamat: "" });
-      getData();
-    } catch (err) {
-      const msg = err.response?.data?.message || "Gagal menambahkan pegawai";
-      setNotif({ open: true, message: msg, severity: "error" });
-    }
-  };
 
   // ================= EDIT =================
   const handleOpenEdit = (p) => {
@@ -117,26 +81,6 @@ export default function DataPegawai() {
     }
   };
 
-  // ================= HAPUS =================
-  const handleDelete = async (id) => {
-    if (!window.confirm("Yakin hapus pegawai ini?")) return;
-    try {
-      await axios.delete(`http://localhost:5000/api/pegawai/${id}`);
-      setNotif({
-        open: true,
-        message: "Pegawai berhasil dihapus",
-        severity: "success",
-      });
-      getData();
-    } catch (err) {
-      setNotif({
-        open: true,
-        message: "Gagal menghapus pegawai",
-        severity: "error",
-      });
-    }
-  };
-
   return (
     <DashboardLayoutAdmin>
       <Box>
@@ -146,7 +90,13 @@ export default function DataPegawai() {
 
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           {/* HEADER */}
-          <Box display="flex" alignItems="center" gap={2} mb={2}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            gap={2}
+            mb={2}
+          >
             <TextField
               placeholder="Cari nama, NIK, atau email..."
               size="small"
@@ -154,13 +104,21 @@ export default function DataPegawai() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <Button
-              variant="contained"
-              sx={{ whiteSpace: "nowrap" }}
-              onClick={() => setOpen(true)}
+            {/* 🔥 Info — tambah pegawai lewat Manajemen Akun */}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                px: 2,
+                py: 1,
+                backgroundColor: "#e3f2fd",
+                borderRadius: 2,
+                whiteSpace: "nowrap",
+                fontSize: 12,
+              }}
             >
-              + Tambah Pegawai
-            </Button>
+              💡 Tambah pegawai melalui menu Manajemen Akun
+            </Typography>
           </Box>
 
           {/* TABLE */}
@@ -171,7 +129,7 @@ export default function DataPegawai() {
                 <TableCell>Nama</TableCell>
                 <TableCell>NIK</TableCell>
                 <TableCell>No HP</TableCell>
-                <TableCell>Email</TableCell>
+                <TableCell>Email Pribadi</TableCell>
                 <TableCell>Alamat</TableCell>
                 <TableCell align="center">Aksi</TableCell>
               </TableRow>
@@ -183,27 +141,19 @@ export default function DataPegawai() {
                   <TableRow key={p.id}>
                     <TableCell>{i + 1}</TableCell>
                     <TableCell>{p.nama}</TableCell>
-                    <TableCell>{p.nik}</TableCell>
-                    <TableCell>{p.no_hp}</TableCell>
-                    <TableCell>{p.email}</TableCell>
-                    <TableCell>{p.alamat}</TableCell>
+                    <TableCell>{p.nik || "-"}</TableCell>
+                    <TableCell>{p.no_hp || "-"}</TableCell>
+                    <TableCell>{p.email || "-"}</TableCell>
+                    <TableCell>{p.alamat || "-"}</TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Edit">
+                      {/* 🔥 Hanya ada Edit, tidak ada Hapus */}
+                      <Tooltip title="Edit Data Kontak">
                         <IconButton
                           color="primary"
                           size="small"
                           onClick={() => handleOpenEdit(p)}
                         >
                           <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Hapus">
-                        <IconButton
-                          color="error"
-                          size="small"
-                          onClick={() => handleDelete(p.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </TableCell>
@@ -220,61 +170,6 @@ export default function DataPegawai() {
           </Table>
         </Paper>
 
-        {/* MODAL TAMBAH */}
-        <Dialog
-          open={open}
-          onClose={() => setOpen(false)}
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle>Tambah Pegawai</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Nama"
-              margin="dense"
-              value={form.nama}
-              onChange={(e) => setForm({ ...form, nama: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="NIK"
-              margin="dense"
-              value={form.nik}
-              onChange={(e) => setForm({ ...form, nik: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="No HP"
-              margin="dense"
-              value={form.no_hp}
-              onChange={(e) => setForm({ ...form, no_hp: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Email"
-              margin="dense"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Alamat"
-              margin="dense"
-              multiline
-              rows={3}
-              value={form.alamat}
-              onChange={(e) => setForm({ ...form, alamat: e.target.value })}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpen(false)}>Batal</Button>
-            <Button variant="contained" onClick={handleSubmit}>
-              Simpan
-            </Button>
-          </DialogActions>
-        </Dialog>
-
         {/* MODAL EDIT */}
         <Dialog
           open={openEdit}
@@ -282,24 +177,24 @@ export default function DataPegawai() {
           fullWidth
           maxWidth="sm"
         >
-          <DialogTitle>Edit Pegawai</DialogTitle>
+          <DialogTitle>Edit Data Kontak Pegawai</DialogTitle>
           <DialogContent>
             {editData && (
               <>
+                {/* Nama tidak bisa diubah — sudah dari akun */}
                 <TextField
                   fullWidth
                   label="Nama"
                   margin="dense"
                   value={editData.nama}
-                  onChange={(e) =>
-                    setEditData({ ...editData, nama: e.target.value })
-                  }
+                  disabled
+                  helperText="Nama diatur dari Manajemen Akun"
                 />
                 <TextField
                   fullWidth
                   label="NIK"
                   margin="dense"
-                  value={editData.nik}
+                  value={editData.nik || ""}
                   onChange={(e) =>
                     setEditData({ ...editData, nik: e.target.value })
                   }
@@ -308,19 +203,20 @@ export default function DataPegawai() {
                   fullWidth
                   label="No HP"
                   margin="dense"
-                  value={editData.no_hp}
+                  value={editData.no_hp || ""}
                   onChange={(e) =>
                     setEditData({ ...editData, no_hp: e.target.value })
                   }
                 />
                 <TextField
                   fullWidth
-                  label="Email"
+                  label="Email Pribadi"
                   margin="dense"
-                  value={editData.email}
+                  value={editData.email || ""}
                   onChange={(e) =>
                     setEditData({ ...editData, email: e.target.value })
                   }
+                  helperText="Email pribadi pegawai (bukan email login)"
                 />
                 <TextField
                   fullWidth
@@ -328,7 +224,7 @@ export default function DataPegawai() {
                   margin="dense"
                   multiline
                   rows={3}
-                  value={editData.alamat}
+                  value={editData.alamat || ""}
                   onChange={(e) =>
                     setEditData({ ...editData, alamat: e.target.value })
                   }

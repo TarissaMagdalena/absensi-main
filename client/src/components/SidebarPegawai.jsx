@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Drawer,
   List,
@@ -20,10 +21,13 @@ export default function SidebarPegawai() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const iconStyle = {
-    fontSize: 26,
-    color: "#555",
-  };
+  // 🔥 Ambil data user dari localStorage
+  const user = useMemo(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  }, []);
+
+  const iconStyle = { fontSize: 26, color: "#555" };
 
   const menu = [
     {
@@ -49,10 +53,7 @@ export default function SidebarPegawai() {
       sx={{
         width: 240,
         flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: 240,
-          boxSizing: "border-box",
-        },
+        "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box" },
       }}
     >
       {/* LOGO */}
@@ -64,18 +65,16 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* ================= PROFILE ================= */}
+      {/* PROFILE */}
       <List>
         <ListItemButton
           disableRipple
           sx={{
-            mx: 1, // 🔥 samakan dengan menu
+            mx: 1,
             mb: 1,
             gap: 2,
             cursor: "default",
-            "&:hover": {
-              backgroundColor: "transparent",
-            },
+            "&:hover": { backgroundColor: "transparent" },
           }}
         >
           <ListItemIcon sx={{ minWidth: 0 }}>
@@ -91,11 +90,12 @@ export default function SidebarPegawai() {
           </ListItemIcon>
 
           <Box>
+            {/* 🔥 Nama & email dinamis dari localStorage */}
             <Typography fontSize={14} fontWeight="bold">
-              Tarissa Magdalena
+              {user?.nama || "Pegawai"}
             </Typography>
             <Typography fontSize={12} color="text.secondary">
-              NIK: 0987654321111
+              NIK: {user?.nik || "-"}
             </Typography>
           </Box>
         </ListItemButton>
@@ -103,11 +103,10 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* ================= MENU ================= */}
+      {/* MENU */}
       <List>
         {menu.map((item, index) => {
           const active = location.pathname === item.path;
-
           return (
             <ListItemButton
               key={index}
@@ -118,13 +117,10 @@ export default function SidebarPegawai() {
                 mx: 1,
                 mb: 1,
                 gap: 2,
-                "&:hover": {
-                  backgroundColor: active ? "#e3f2fd" : "#f5f5f5",
-                },
+                "&:hover": { backgroundColor: active ? "#e3f2fd" : "#f5f5f5" },
               }}
             >
               <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
-
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
@@ -139,12 +135,13 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* ================= LOGOUT ================= */}
+      {/* LOGOUT */}
       <Box mt="auto">
         <List>
           <ListItemButton
             onClick={() => {
               if (window.confirm("Yakin ingin keluar?")) {
+                localStorage.removeItem("user"); // 🔥 bersihkan saat logout
                 navigate("/");
               }
             }}
@@ -153,29 +150,16 @@ export default function SidebarPegawai() {
               mb: 1,
               gap: 2,
               borderRadius: 2,
-
-              color: "#d32f2f", // 🔥 merah
-
-              "&:hover": {
-                backgroundColor: "#fdecea", // hover merah soft
-              },
+              color: "#d32f2f",
+              "&:hover": { backgroundColor: "#fdecea" },
             }}
           >
             <ListItemIcon sx={{ minWidth: 0 }}>
-              <LogoutIcon
-                sx={{
-                  ...iconStyle,
-                  color: "#d32f2f", // 🔥 samakan dengan text
-                }}
-              />
+              <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
             </ListItemIcon>
-
             <ListItemText
               primary="Keluar"
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: "bold",
-              }}
+              primaryTypographyProps={{ fontSize: 14, fontWeight: "bold" }}
             />
           </ListItemButton>
         </List>

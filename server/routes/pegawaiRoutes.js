@@ -27,12 +27,12 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "NIK sudah terdaftar" });
     }
 
-    await db.query(
+    const [result] = await db.query(
       "INSERT INTO pegawai (nama, nik, no_hp, email, alamat) VALUES (?, ?, ?, ?, ?)",
       [nama, nik, no_hp, email, alamat],
     );
 
-    res.json({ message: "Pegawai berhasil ditambahkan" });
+    res.json({ message: "Pegawai berhasil ditambahkan", id: result.insertId });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -42,10 +42,12 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { nama, nik, no_hp, email, alamat } = req.body;
+
     await db.query(
       "UPDATE pegawai SET nama=?, nik=?, no_hp=?, email=?, alamat=? WHERE id=?",
       [nama, nik, no_hp, email, alamat, req.params.id],
     );
+
     res.json({ message: "Pegawai berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ message: err.message });
