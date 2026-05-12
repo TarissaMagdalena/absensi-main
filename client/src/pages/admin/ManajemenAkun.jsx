@@ -1,142 +1,175 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../utils/api";
+import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
 import {
+  Alert,
   Box,
-  Typography,
-  Paper,
-  TextField,
-  MenuItem,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  MenuItem,
+  Paper,
+  Snackbar,
   Table,
+  TableBody,
+  TableCell,
   TableHead,
   TableRow,
-  TableCell,
-  TableBody,
-  Snackbar,
-  Alert,
-  IconButton,
+  TextField,
   Tooltip,
-  Chip,
+  Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
+import EditIcon from "@mui/icons-material/Edit";
+
+const FORM_INIT = { nama: "", email: "", password: "", role: "pegawai" };
+const NOTIF_INIT = { open: false, message: "", severity: "success" };
 
 export default function ManajemenAkun() {
   const [akun, setAkun] = useState([]);
-  const [form, setForm] = useState({
-    nama: "",
-    email: "",
-    password: "",
-    role: "pegawai",
-  });
-  const [notif, setNotif] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  const [form, setForm] = useState(FORM_INIT);
+  const [notif, setNotif] = useState(NOTIF_INIT);
 
-  // ================= GET DATA =================
+  // ── State edit ──
+  const [dialogEdit, setDialogEdit] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [gantiPassword, setGantiPassword] = useState(false);
+
+  const closeNotif = () => setNotif((n) => ({ ...n, open: false }));
+  const showNotif = (message, severity = "success") =>
+    setNotif({ open: true, message, severity });
+
   const loadAkun = () => {
-    fetch("http://localhost:5000/api/users")
+    apiFetch("http://localhost:5000/api/users")
       .then((res) => res.json())
       .then((data) => setAkun(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        console.error("error akun:", err);
-        setAkun([]);
-      });
+      .catch(() => setAkun([]));
   };
 
   useEffect(() => {
     loadAkun();
   }, []);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  // ================= SUBMIT =================
+  // ── Tambah akun ──
   const handleSubmit = async () => {
     if (!form.nama || !form.email || !form.password) {
-      setNotif({
-        open: true,
-        message: "Lengkapi semua field!",
-        severity: "warning",
-      });
+      showNotif("Lengkapi semua field!", "warning");
       return;
     }
-
     try {
-      const res = await fetch("http://localhost:5000/api/users", {
+      const res = await apiFetch("http://localhost:5000/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
-        setNotif({ open: true, message: data.message, severity: "error" });
+        showNotif(data.message, "error");
         return;
       }
-
-      setNotif({
-        open: true,
-        message: "✅ Akun berhasil dibuat!",
-        severity: "success",
-      });
-      setForm({ nama: "", email: "", password: "", role: "pegawai" });
+      showNotif("✅ Akun berhasil dibuat!");
+      setForm(FORM_INIT);
       loadAkun();
-    } catch (error) {
-      setNotif({
-        open: true,
-        message: "Gagal terhubung ke server",
-        severity: "error",
-      });
+    } catch {
+      showNotif("Gagal terhubung ke server", "error");
     }
   };
 
-  // ================= DELETE =================
-  const handleDelete = async (id) => {
-    if (!window.confirm("Yakin hapus akun ini?")) return;
+  // ── Buka dialog edit ──
+  const handleOpenEdit = (a) => {
+    setEditData({
+      id: a.id,
+      nama: a.nama,
+      email: a.email,
+      role: a.role,
+      password: "",
+    });
+    setGantiPassword(false);
+    setDialogEdit(true);
+  };
 
+  // ── Simpan edit ──
+  const handleSimpanEdit = async () => {
+    if (!editData.nama || !editData.email) {
+      showNotif("Nama dan email wajib diisi", "warning");
+      return;
+    }
+    if (gantiPassword && !editData.password) {
+      showNotif("Isi password baru", "warning");
+      return;
+    }
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${id}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setNotif({ open: true, message: data.message, severity: "error" });
-        return;
+      const body = {
+        nama: editData.nama,
+        email: editData.email,
+        role: editData.role,
+      };
+      if (gantiPassword && editData.password) {
+        body.password = editData.password;
       }
 
-      setNotif({
-        open: true,
-        message: "Akun berhasil dihapus",
-        severity: "success",
-      });
+      const res = await apiFetch(
+        `http://localhost:5000/api/users/${editData.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        showNotif(data.message, "error");
+        return;
+      }
+      showNotif("✅ Akun berhasil diupdate!");
+      setDialogEdit(false);
       loadAkun();
-    } catch (error) {
-      setNotif({
-        open: true,
-        message: "Gagal menghapus akun",
-        severity: "error",
+    } catch {
+      showNotif("Gagal terhubung ke server", "error");
+    }
+  };
+
+  // ── Hapus akun ──
+  const handleDelete = async (id) => {
+    if (!window.confirm("Yakin hapus akun ini?")) return;
+    try {
+      const res = await apiFetch(`http://localhost:5000/api/users/${id}`, {
+        method: "DELETE",
       });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotif(data.message, "error");
+        return;
+      }
+      showNotif("Akun berhasil dihapus");
+      loadAkun();
+    } catch {
+      showNotif("Gagal menghapus akun", "error");
     }
   };
 
   return (
     <DashboardLayoutAdmin>
-      <Typography variant="h5" fontWeight="bold" mb={3}>
+      <Typography variant="h5" fontWeight="bold">
         Manajemen Akun
       </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Kelola akun login pegawai — tambah atau hapus akses sistem
+      </Typography>
 
-      {/* FORM */}
+      {/* FORM TAMBAH */}
       <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
         <Typography fontWeight="bold" mb={2}>
           Tambah Akun Pegawai
         </Typography>
-
         <Box
           display="flex"
           alignItems="center"
@@ -157,15 +190,16 @@ export default function ManajemenAkun() {
               size="small"
               label="Email"
               name="email"
+              type="email"
               value={form.email}
               onChange={handleChange}
               sx={{ minWidth: 200 }}
             />
             <TextField
               size="small"
-              type="password"
               label="Password"
               name="password"
+              type="password"
               value={form.password}
               onChange={handleChange}
               sx={{ minWidth: 180 }}
@@ -183,7 +217,6 @@ export default function ManajemenAkun() {
               <MenuItem value="admin">Admin</MenuItem>
             </TextField>
           </Box>
-
           <Button
             variant="contained"
             onClick={handleSubmit}
@@ -194,11 +227,11 @@ export default function ManajemenAkun() {
         </Box>
       </Paper>
 
-      {/* TABLE */}
+      {/* TABEL */}
       <Paper sx={{ p: 2, borderRadius: 3 }}>
         <Table>
           <TableHead>
-            <TableRow>
+            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>No</TableCell>
               <TableCell>Nama</TableCell>
               <TableCell>Email</TableCell>
@@ -206,16 +239,17 @@ export default function ManajemenAkun() {
               <TableCell align="center">Aksi</TableCell>
             </TableRow>
           </TableHead>
-
           <TableBody>
             {akun.length > 0 ? (
               akun.map((a, i) => (
-                <TableRow key={a.id}>
+                <TableRow
+                  key={a.id}
+                  sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
+                >
                   <TableCell>{i + 1}</TableCell>
                   <TableCell>{a.nama}</TableCell>
                   <TableCell>{a.email}</TableCell>
                   <TableCell>
-                    {/* 🔥 Chip untuk role */}
                     <Chip
                       label={a.role}
                       size="small"
@@ -223,23 +257,37 @@ export default function ManajemenAkun() {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    {/* 🔥 Icon hapus konsisten dengan DataPegawai */}
-                    <Tooltip title="Hapus">
-                      <IconButton
-                        color="error"
-                        size="small"
-                        onClick={() => handleDelete(a.id)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Box display="flex" gap={0.5} justifyContent="center">
+                      <Tooltip title="Edit Akun">
+                        <IconButton
+                          color="primary"
+                          size="small"
+                          onClick={() => handleOpenEdit(a)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Hapus Akun">
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => handleDelete(a.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center">
-                  Tidak ada data
+                <TableCell
+                  colSpan={5}
+                  align="center"
+                  sx={{ py: 4, color: "text.secondary" }}
+                >
+                  Tidak ada data akun
                 </TableCell>
               </TableRow>
             )}
@@ -247,13 +295,111 @@ export default function ManajemenAkun() {
         </Table>
       </Paper>
 
-      {/* NOTIF */}
+      {/* DIALOG EDIT */}
+      <Dialog
+        open={dialogEdit}
+        onClose={() => setDialogEdit(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle fontWeight="bold">Edit Akun</DialogTitle>
+        <Divider />
+        <DialogContent>
+          {editData && (
+            <Box display="flex" flexDirection="column" gap={2} pt={1}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Nama Lengkap"
+                value={editData.nama}
+                onChange={(e) =>
+                  setEditData({ ...editData, nama: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Email"
+                type="email"
+                value={editData.email}
+                onChange={(e) =>
+                  setEditData({ ...editData, email: e.target.value })
+                }
+              />
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Role"
+                value={editData.role}
+                onChange={(e) =>
+                  setEditData({ ...editData, role: e.target.value })
+                }
+              >
+                <MenuItem value="pegawai">Pegawai</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+              </TextField>
+
+              <Divider />
+
+              {/* Toggle ganti password */}
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Typography fontSize={14} color="text.secondary">
+                  Ganti Password
+                </Typography>
+                <Button
+                  size="small"
+                  variant={gantiPassword ? "contained" : "outlined"}
+                  onClick={() => {
+                    setGantiPassword(!gantiPassword);
+                    setEditData({ ...editData, password: "" });
+                  }}
+                >
+                  {gantiPassword ? "Batal Ganti" : "Ganti Password"}
+                </Button>
+              </Box>
+
+              {gantiPassword && (
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Password Baru"
+                  type="password"
+                  value={editData.password}
+                  onChange={(e) =>
+                    setEditData({ ...editData, password: e.target.value })
+                  }
+                  helperText="Minimal 6 karakter"
+                />
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setDialogEdit(false)} variant="outlined">
+            Batal
+          </Button>
+          <Button variant="contained" onClick={handleSimpanEdit}>
+            Simpan
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SNACKBAR */}
       <Snackbar
         open={notif.open}
         autoHideDuration={3000}
-        onClose={() => setNotif({ ...notif, open: false })}
+        onClose={closeNotif}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={notif.severity}>{notif.message}</Alert>
+        <Alert severity={notif.severity} variant="filled" onClose={closeNotif}>
+          {notif.message}
+        </Alert>
       </Snackbar>
     </DashboardLayoutAdmin>
   );

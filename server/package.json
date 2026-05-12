@@ -3,23 +3,30 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
-  "scripts": {
-    "dev": "nodemon index.js"
-  },
+  "description": "",
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "test": "vitest run"
+  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "multer": "^2.1.1",
     "mysql2": "^3.18.2",
+    "node-cron": "^4.2.1",
+    "ntp-client": "^0.5.3",
     "pdfkit": "^0.18.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
-  },
-  "description": ""
+    "nodemon": "^3.1.11",
+    "supertest": "^7.2.2",
+    "vitest": "^3.2.3"
+  }
 }

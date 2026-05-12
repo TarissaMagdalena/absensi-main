@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../../utils/api"; // ← pakai axios instance, bukan axios langsung
+import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
 import {
   Box,
-  Button,
-  TextField,
   Typography,
   Paper,
   Table,
@@ -11,6 +10,8 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  TextField,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -21,34 +22,38 @@ import {
   Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
 
+// ═════════════════════════════════════════════════════════════════════════════
 export default function DataPegawai() {
+  // ── State data ──────────────────────────────────────────────────────────────
   const [pegawai, setPegawai] = useState([]);
   const [search, setSearch] = useState("");
+
+  // ── State dialog edit ────────────────────────────────────────────────────────
   const [openEdit, setOpenEdit] = useState(false);
   const [editData, setEditData] = useState(null);
+
+  // ── State trigger reload ─────────────────────────────────────────────────────
+  const [refresh, setRefresh] = useState(0);
+
+  // ── State notifikasi snackbar ────────────────────────────────────────────────
   const [notif, setNotif] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+  const showNotif = (message, severity = "success") =>
+    setNotif({ open: true, message, severity });
 
-  // ================= GET DATA =================
-  const getData = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/pegawai");
-      setPegawai(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error load pegawai:", err);
-    }
-  };
-
+  // ── Fetch daftar pegawai — diulang setiap kali refresh berubah ───────────────
   useEffect(() => {
-    getData();
-  }, []);
+    api
+      .get("/pegawai")
+      .then((res) => setPegawai(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.error("Gagal load pegawai:", err));
+  }, [refresh]);
 
-  // ================= FILTER SEARCH =================
+  // ── Filter berdasarkan nama, NIK, atau email ──────────────────────────────────
   const filteredPegawai = pegawai.filter(
     (p) =>
       p.nama?.toLowerCase().includes(search.toLowerCase()) ||
@@ -56,40 +61,41 @@ export default function DataPegawai() {
       p.email?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  // ================= EDIT =================
+  // ── Buka dialog edit dengan data pegawai yang dipilih ────────────────────────
   const handleOpenEdit = (p) => {
     setEditData({ ...p });
     setOpenEdit(true);
   };
 
+  // ── Simpan perubahan data kontak pegawai ──────────────────────────────────────
   const handleEdit = async () => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/pegawai/${editData.id}`,
-        editData,
-      );
-      setNotif({
-        open: true,
-        message: "✅ Data pegawai berhasil diupdate",
-        severity: "success",
-      });
+      await api.put(`/pegawai/${editData.id}`, editData);
+      showNotif("✅ Data pegawai berhasil diupdate");
       setOpenEdit(false);
-      getData();
+      setRefresh((r) => r + 1); // trigger useEffect untuk reload data
     } catch (err) {
-      const msg = err.response?.data?.message || "Gagal mengupdate pegawai";
-      setNotif({ open: true, message: msg, severity: "error" });
+      showNotif(
+        err.response?.data?.message || "Gagal mengupdate pegawai",
+        "error",
+      );
     }
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutAdmin>
       <Box>
-        <Typography variant="h5" fontWeight="bold" mb={2}>
+        {/* ── HEADER ── */}
+        <Typography variant="h5" fontWeight="bold">
           Data Pegawai
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Daftar seluruh pegawai yang terdaftar dalam sistem
         </Typography>
 
         <Paper sx={{ p: 3, borderRadius: 3 }}>
-          {/* HEADER */}
+          {/* ── SEARCH + INFO ── */}
           <Box
             display="flex"
             alignItems="center"
@@ -104,7 +110,6 @@ export default function DataPegawai() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {/* 🔥 Info — tambah pegawai lewat Manajemen Akun */}
             <Typography
               variant="body2"
               color="text.secondary"
@@ -121,7 +126,7 @@ export default function DataPegawai() {
             </Typography>
           </Box>
 
-          {/* TABLE */}
+          {/* ── TABEL PEGAWAI ── */}
           <Table>
             <TableHead>
               <TableRow>
@@ -134,19 +139,20 @@ export default function DataPegawai() {
                 <TableCell align="center">Aksi</TableCell>
               </TableRow>
             </TableHead>
-
             <TableBody>
               {filteredPegawai.length > 0 ? (
                 filteredPegawai.map((p, i) => (
-                  <TableRow key={p.id}>
+                  <TableRow
+                    key={p.id}
+                    sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
+                  >
                     <TableCell>{i + 1}</TableCell>
-                    <TableCell>{p.nama}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{p.nama}</TableCell>
                     <TableCell>{p.nik || "-"}</TableCell>
                     <TableCell>{p.no_hp || "-"}</TableCell>
                     <TableCell>{p.email || "-"}</TableCell>
                     <TableCell>{p.alamat || "-"}</TableCell>
                     <TableCell align="center">
-                      {/* 🔥 Hanya ada Edit, tidak ada Hapus */}
                       <Tooltip title="Edit Data Kontak">
                         <IconButton
                           color="primary"
@@ -161,7 +167,11 @@ export default function DataPegawai() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell
+                    colSpan={7}
+                    align="center"
+                    sx={{ py: 3, color: "text.secondary" }}
+                  >
                     {search ? "Data tidak ditemukan" : "Tidak ada data"}
                   </TableCell>
                 </TableRow>
@@ -169,86 +179,97 @@ export default function DataPegawai() {
             </TableBody>
           </Table>
         </Paper>
-
-        {/* MODAL EDIT */}
-        <Dialog
-          open={openEdit}
-          onClose={() => setOpenEdit(false)}
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle>Edit Data Kontak Pegawai</DialogTitle>
-          <DialogContent>
-            {editData && (
-              <>
-                {/* Nama tidak bisa diubah — sudah dari akun */}
-                <TextField
-                  fullWidth
-                  label="Nama"
-                  margin="dense"
-                  value={editData.nama}
-                  disabled
-                  helperText="Nama diatur dari Manajemen Akun"
-                />
-                <TextField
-                  fullWidth
-                  label="NIK"
-                  margin="dense"
-                  value={editData.nik || ""}
-                  onChange={(e) =>
-                    setEditData({ ...editData, nik: e.target.value })
-                  }
-                />
-                <TextField
-                  fullWidth
-                  label="No HP"
-                  margin="dense"
-                  value={editData.no_hp || ""}
-                  onChange={(e) =>
-                    setEditData({ ...editData, no_hp: e.target.value })
-                  }
-                />
-                <TextField
-                  fullWidth
-                  label="Email Pribadi"
-                  margin="dense"
-                  value={editData.email || ""}
-                  onChange={(e) =>
-                    setEditData({ ...editData, email: e.target.value })
-                  }
-                  helperText="Email pribadi pegawai (bukan email login)"
-                />
-                <TextField
-                  fullWidth
-                  label="Alamat"
-                  margin="dense"
-                  multiline
-                  rows={3}
-                  value={editData.alamat || ""}
-                  onChange={(e) =>
-                    setEditData({ ...editData, alamat: e.target.value })
-                  }
-                />
-              </>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenEdit(false)}>Batal</Button>
-            <Button variant="contained" onClick={handleEdit}>
-              Update
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* NOTIF */}
-        <Snackbar
-          open={notif.open}
-          autoHideDuration={3000}
-          onClose={() => setNotif({ ...notif, open: false })}
-        >
-          <Alert severity={notif.severity}>{notif.message}</Alert>
-        </Snackbar>
       </Box>
+
+      {/* ════════ DIALOG EDIT DATA KONTAK ════════ */}
+      <Dialog
+        open={openEdit}
+        onClose={() => setOpenEdit(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle fontWeight="bold">Edit Data Kontak Pegawai</DialogTitle>
+        <DialogContent>
+          {editData && (
+            <Box display="flex" flexDirection="column" gap={0}>
+              {/* Nama — disabled, diatur dari Manajemen Akun */}
+              <TextField
+                fullWidth
+                label="Nama"
+                margin="dense"
+                value={editData.nama}
+                disabled
+                helperText="Nama diatur dari Manajemen Akun"
+              />
+
+              {/* NIK */}
+              <TextField
+                fullWidth
+                label="NIK"
+                margin="dense"
+                value={editData.nik || ""}
+                onChange={(e) =>
+                  setEditData({ ...editData, nik: e.target.value })
+                }
+              />
+
+              {/* No HP */}
+              <TextField
+                fullWidth
+                label="No HP"
+                margin="dense"
+                value={editData.no_hp || ""}
+                onChange={(e) =>
+                  setEditData({ ...editData, no_hp: e.target.value })
+                }
+              />
+
+              {/* Email pribadi (bukan email login) */}
+              <TextField
+                fullWidth
+                label="Email Pribadi"
+                margin="dense"
+                value={editData.email || ""}
+                onChange={(e) =>
+                  setEditData({ ...editData, email: e.target.value })
+                }
+                helperText="Email pribadi pegawai (bukan email login)"
+              />
+
+              {/* Alamat */}
+              <TextField
+                fullWidth
+                label="Alamat"
+                margin="dense"
+                multiline
+                rows={3}
+                value={editData.alamat || ""}
+                onChange={(e) =>
+                  setEditData({ ...editData, alamat: e.target.value })
+                }
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEdit(false)}>Batal</Button>
+          <Button variant="contained" onClick={handleEdit}>
+            Update
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ════════ SNACKBAR NOTIFIKASI ════════ */}
+      <Snackbar
+        open={notif.open}
+        autoHideDuration={3000}
+        onClose={() => setNotif({ ...notif, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity={notif.severity} variant="filled">
+          {notif.message}
+        </Alert>
+      </Snackbar>
     </DashboardLayoutAdmin>
   );
 }

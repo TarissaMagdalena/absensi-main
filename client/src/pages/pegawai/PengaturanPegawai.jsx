@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { apiFetch } from "../../utils/api";
 import DashboardLayoutPegawai from "../../layout/DashboardLayoutPegawai";
 
 import {
@@ -76,7 +77,7 @@ export default function PengaturanPegawai() {
     }
 
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         "http://localhost:5000/api/auth/change-password",
         {
           method: "PUT",
@@ -107,8 +108,11 @@ export default function PengaturanPegawai() {
   return (
     <DashboardLayoutPegawai>
       <Box>
-        <Typography variant="h5" fontWeight="bold" mb={3}>
+        <Typography variant="h5" fontWeight="bold">
           Pengaturan Akun
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={3}>
+          Perbarui password akun Anda secara berkala untuk keamanan
         </Typography>
 
         {/* ================= PROFILE ================= */}
@@ -142,7 +146,6 @@ export default function PengaturanPegawai() {
             />
           </Box>
         </Paper>
-
         {/* ================= PASSWORD ================= */}
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           <Typography fontWeight="bold" mb={2}>

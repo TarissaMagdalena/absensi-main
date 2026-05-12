@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -25,11 +26,12 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    localStorage.removeItem("user"); // hapus sesi lama sebelum login baru
     setError("");
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await apiFetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

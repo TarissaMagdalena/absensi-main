@@ -1,0 +1,50 @@
+C:\xampp\htdocs\absensi-main\server\routes\absensiRoutes.js
+  42,1: router.post("/masuk", absenMasuk);
+  45,1: router.post("/pulang", absenPulang);
+  48,1: router.get("/today", getTodayAbsensi);
+  51,1: router.get("/hari-ini", async (req, res) => {
+  84,1: router.post("/proses-alpha", async (req, res) => {
+  105,1: router.get("/", async (req, res) => {
+  137,1: router.get("/dashboard-summary", async (req, res) => {
+  200,1: router.get("/rekapan/:pegawai_id", async (req, res) => {
+  236,1: router.post("/manual", upload.single("surat_mc"), async (req, res) => {
+  305,1: router.put("/:id", async (req, res) => {
+  327,1: router.delete("/:id", async (req, res) => {
+
+C:\xampp\htdocs\absensi-main\server\routes\authRoutes.js
+  8,1: router.post("/login", async (req, res) => {
+  66,1: router.put("/change-password", async (req, res) => {
+
+C:\xampp\htdocs\absensi-main\server\routes\cutiRoutes.js
+  8,1: router.get("/", async (req, res) => {
+  32,1: router.put("/", async (req, res) => {
+  56,1: router.get("/pegawai/:pegawai_id", async (req, res) => {
+
+C:\xampp\htdocs\absensi-main\server\routes\jadwalRoutes.js
+  39,1: router.get("/shift", async (req, res) => {
+  49,1: router.get("/pegawai/:pegawai_id", async (req, res) => {
+  73,1: router.get("/", async (req, res) => {
+  101,1: router.get("/jatah-cuti", async (req, res) => {
+  121,1: router.post("/jatah-cuti", async (req, res) => {
+  139,1: router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
+  299,1: router.post("/salin", async (req, res) => {
+  370,1: router.get("/download-pdf", async (req, res) => {
+  699,1: router.put("/shift/:kode", async (req, res) => {
+
+C:\xampp\htdocs\absensi-main\server\routes\laporanRoutes.js
+  52,1: router.get("/", async (req, res) => {
+  76,1: router.get("/rekap-bulanan", async (req, res) => {
+  114,1: router.get("/rekap-bulanan/download", async (req, res) => {
+  525,1: router.get("/download", async (req, res) => {
+
+C:\xampp\htdocs\absensi-main\server\routes\pegawaiRoutes.js
+  7,1: router.get("/", async (req, res) => {
+  17,1: router.post("/", async (req, res) => {
+  42,1: router.put("/:id", async (req, res) => {
+  58,1: router.delete("/:id", async (req, res) => {
+
+
+C:\xampp\htdocs\absensi-main\server\routes\userRoutes.js
+  10,1: router.get("/", getUsers);
+  11,1: router.post("/", createUser);
+  12,1: router.delete("/:id", deleteUser);

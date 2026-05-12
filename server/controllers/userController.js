@@ -53,6 +53,44 @@ export const createUser = async (req, res) => {
   }
 };
 
+export const updateUser = async (req, res) => {
+  try {
+    const { nama, email, role, password } = req.body;
+    const { id } = req.params;
+
+    if (!nama || !email) {
+      return res.status(400).json({ message: "Nama dan email wajib diisi" });
+    }
+
+    const [cek] = await db.query(
+      "SELECT id FROM users WHERE email = ? AND id != ?",
+      [email, id],
+    );
+    if (cek.length > 0) {
+      return res.status(400).json({ message: "Email sudah digunakan" });
+    }
+
+    if (password) {
+      const hashed = await bcrypt.hash(password, 10);
+      await db.query(
+        "UPDATE users SET nama = ?, email = ?, role = ?, password = ? WHERE id = ?",
+        [nama, email, role, hashed, id],
+      );
+    } else {
+      await db.query(
+        "UPDATE users SET nama = ?, email = ?, role = ? WHERE id = ?",
+        [nama, email, role, id],
+      );
+    }
+
+    await db.query("UPDATE pegawai SET nama = ? WHERE user_id = ?", [nama, id]);
+
+    res.json({ message: "Akun berhasil diupdate" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  } // ← tutup catch
+}; // ← tutup fungsi — INI YANG HILANG
+
 // DELETE USER
 export const deleteUser = async (req, res) => {
   try {

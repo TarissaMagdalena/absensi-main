@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Drawer,
   List,
@@ -9,26 +10,26 @@ import {
   Box,
   Divider,
 } from "@mui/material";
-
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import HistoryIcon from "@mui/icons-material/History";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { useNavigate, useLocation } from "react-router-dom";
 
 export default function SidebarPegawai() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 🔥 Ambil data user dari localStorage
+  // ── Ambil data user dari localStorage (di-memo agar tidak re-parse tiap render) ──
   const user = useMemo(() => {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
   }, []);
 
+  // ── Gaya icon menu ────────────────────────────────────────────────────────
   const iconStyle = { fontSize: 26, color: "#555" };
 
+  // ── Daftar menu navigasi beserta icon dan path tujuan ─────────────────────
   const menu = [
     {
       text: "Dashboard",
@@ -36,9 +37,9 @@ export default function SidebarPegawai() {
       path: "/dashboard",
     },
     {
-      text: "Riwayat Absensi",
+      text: "Rekap Kehadiran",
       icon: <HistoryIcon sx={iconStyle} />,
-      path: "/riwayat",
+      path: "/rekapkehadiran",
     },
     {
       text: "Pengaturan",
@@ -56,7 +57,7 @@ export default function SidebarPegawai() {
         "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box" },
       }}
     >
-      {/* LOGO */}
+      {/* ── Logo aplikasi ── */}
       <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
         <Typography variant="h5" fontWeight="bold">
           E-Absen
@@ -65,7 +66,7 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* PROFILE */}
+      {/* ── Info profil pegawai (dinamis dari localStorage) ── */}
       <List>
         <ListItemButton
           disableRipple
@@ -88,9 +89,8 @@ export default function SidebarPegawai() {
               }}
             />
           </ListItemIcon>
-
           <Box>
-            {/* 🔥 Nama & email dinamis dari localStorage */}
+            {/* Nama & NIK pegawai diambil dari localStorage */}
             <Typography fontSize={14} fontWeight="bold">
               {user?.nama || "Pegawai"}
             </Typography>
@@ -103,9 +103,10 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* MENU */}
+      {/* ── Daftar menu navigasi ── */}
       <List>
         {menu.map((item, index) => {
+          // Cek apakah menu ini sedang aktif berdasarkan pathname
           const active = location.pathname === item.path;
           return (
             <ListItemButton
@@ -135,13 +136,14 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* LOGOUT */}
+      {/* ── Tombol logout di bagian bawah sidebar ── */}
       <Box mt="auto">
         <List>
           <ListItemButton
             onClick={() => {
+              // Hapus sesi user dan arahkan ke halaman login
               if (window.confirm("Yakin ingin keluar?")) {
-                localStorage.removeItem("user"); // 🔥 bersihkan saat logout
+                localStorage.removeItem("user");
                 navigate("/");
               }
             }}

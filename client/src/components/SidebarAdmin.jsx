@@ -1,9 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { usePending } from "../pages/admin/PendingContext";
-
 import {
   Drawer,
-  Badge,
   List,
   ListItemButton,
   ListItemIcon,
@@ -12,26 +9,23 @@ import {
   Box,
   Divider,
 } from "@mui/material";
-
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import PeopleIcon from "@mui/icons-material/People";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 export default function SidebarAdmin() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { pendingCount } = usePending(); // ← ambil dari context
 
-  const iconStyle = {
-    fontSize: 24,
-    color: "#555",
-  };
+  // ── Gaya icon menu ────────────────────────────────────────────────────────
+  const iconStyle = { fontSize: 24, color: "#555" };
 
+  // ── Daftar menu navigasi beserta icon dan path tujuan ─────────────────────
   const menu = [
     {
       text: "Dashboard",
@@ -39,9 +33,9 @@ export default function SidebarAdmin() {
       path: "/admin/dashboard",
     },
     {
-      text: "Approval",
-      icon: <PendingActionsIcon sx={iconStyle} />,
-      path: "/admin/approval",
+      text: "Jadwal Shift",
+      icon: <CalendarMonthIcon sx={iconStyle} />,
+      path: "/admin/jadwal",
     },
     {
       text: "Data Absensi",
@@ -70,19 +64,24 @@ export default function SidebarAdmin() {
     },
   ];
 
+  // ── Hapus sesi user dan arahkan ke halaman login ──────────────────────────
+  const handleLogout = () => {
+    if (window.confirm("Yakin ingin keluar?")) {
+      localStorage.removeItem("user");
+      navigate("/");
+    }
+  };
+
   return (
     <Drawer
       variant="permanent"
       sx={{
         width: 240,
         flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: 240,
-          boxSizing: "border-box",
-        },
+        "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box" },
       }}
     >
-      {/* LOGO */}
+      {/* ── Logo aplikasi ── */}
       <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
         <Typography variant="h5" fontWeight="bold">
           E-Absen
@@ -91,7 +90,7 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* PROFILE */}
+      {/* ── Info profil admin (statis) ── */}
       <List>
         <ListItemButton
           disableRipple
@@ -114,7 +113,6 @@ export default function SidebarAdmin() {
               }}
             />
           </ListItemIcon>
-
           <Typography fontSize={16} fontWeight="bold">
             Admin
           </Typography>
@@ -123,11 +121,11 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* MENU */}
+      {/* ── Daftar menu navigasi ── */}
       <List>
         {menu.map((item, index) => {
+          // Cek apakah menu ini sedang aktif berdasarkan pathname
           const active = location.pathname === item.path;
-
           return (
             <ListItemButton
               key={index}
@@ -140,15 +138,11 @@ export default function SidebarAdmin() {
                 gap: 2,
                 display: "flex",
                 justifyContent: "space-between",
-                "&:hover": {
-                  backgroundColor: active ? "#e3f2fd" : "#f5f5f5",
-                },
+                "&:hover": { backgroundColor: active ? "#e3f2fd" : "#f5f5f5" },
               }}
             >
-              {/* LEFT (ICON + TEXT) */}
               <Box display="flex" alignItems="center" gap={2}>
                 <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
-
                 <ListItemText
                   primary={item.text}
                   primaryTypographyProps={{
@@ -157,14 +151,6 @@ export default function SidebarAdmin() {
                   }}
                 />
               </Box>
-
-              {/* RIGHT (BADGE - hanya approval) */}
-              {item.text === "Approval" && pendingCount > 0 && (
-                <Badge
-                  badgeContent={pendingCount > 9 ? "9+" : pendingCount}
-                  color="error"
-                />
-              )}
             </ListItemButton>
           );
         })}
@@ -172,41 +158,26 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* LOGOUT */}
+      {/* ── Tombol logout di bagian bawah sidebar ── */}
       <Box mt="auto">
         <List>
           <ListItemButton
-            onClick={() => {
-              if (window.confirm("Yakin ingin keluar?")) {
-                navigate("/");
-              }
-            }}
+            onClick={handleLogout}
             sx={{
               mx: 1,
               mb: 1,
               gap: 2,
               borderRadius: 2,
               color: "#d32f2f",
-              "&:hover": {
-                backgroundColor: "#fdecea",
-              },
+              "&:hover": { backgroundColor: "#fdecea" },
             }}
           >
             <ListItemIcon sx={{ minWidth: 0 }}>
-              <LogoutIcon
-                sx={{
-                  ...iconStyle,
-                  color: "#d32f2f",
-                }}
-              />
+              <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
             </ListItemIcon>
-
             <ListItemText
               primary="Keluar"
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: "bold",
-              }}
+              primaryTypographyProps={{ fontSize: 14, fontWeight: "bold" }}
             />
           </ListItemButton>
         </List>
