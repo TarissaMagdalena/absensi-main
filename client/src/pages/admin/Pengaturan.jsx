@@ -90,16 +90,16 @@ export default function Pengaturan() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      showNotif("Password baru tidak sama!", "warning");
+      showNotif("Kata Sandi baru tidak sama!", "warning");
       return;
     }
     if (newPassword.length < 6) {
-      showNotif("Password minimal 6 karakter!", "warning");
+      showNotif("Kata Sandi minimal 6 karakter!", "warning");
       return;
     }
     if (strength < 2) {
       showNotif(
-        "Password terlalu lemah — tambahkan huruf besar, angka, atau simbol.",
+        "Kata Sandi terlalu lemah — tambahkan huruf besar, angka, atau simbol.",
         "warning",
       );
       return;
@@ -114,7 +114,7 @@ export default function Pengaturan() {
         confirmPassword,
       });
 
-      showNotif("✅ Password berhasil diubah!");
+      showNotif("✅ Kata Sandi berhasil diubah!");
       setForm(FORM_INIT);
       setStrength(0);
     } catch (err) {
@@ -132,15 +132,15 @@ export default function Pengaturan() {
         <Paper sx={{ maxWidth: 520, p: 4, borderRadius: 3, mx: "auto", mt: 4 }}>
           {/* Judul */}
           <Typography variant="h6" fontWeight="bold" mb={1}>
-            Ubah Password
+            Ubah Kata Sandi
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
-            Gunakan password yang panjang dan acak agar akun tetap aman.
+            Gunakan kata sandi yang panjang dan acak agar akun tetap aman.
           </Typography>
 
-          {/* ── Field: Password saat ini ──────────────────────────────────── */}
+          {/* ── Field: Kata Sandi saat ini ──────────────────────────────────── */}
           <Typography variant="body2" fontWeight={500} mb={0.5}>
-            Password Saat Ini
+            Kata Sandi Saat Ini
           </Typography>
           <TextField
             fullWidth
@@ -160,9 +160,9 @@ export default function Pengaturan() {
             }}
           />
 
-          {/* ── Field: Password baru ──────────────────────────────────────── */}
+          {/* ── Field: Kata Sandi baru ──────────────────────────────────────── */}
           <Typography variant="body2" fontWeight={500} mb={0.5}>
-            Password Baru
+            Kata Sandi Baru
           </Typography>
           <TextField
             fullWidth
@@ -216,7 +216,7 @@ export default function Pengaturan() {
 
           {/* ── Field: Konfirmasi password baru ───────────────────────────── */}
           <Typography variant="body2" fontWeight={500} mb={0.5}>
-            Konfirmasi Password Baru
+            Konfirmasi Kata Sandi Baru
           </Typography>
           <TextField
             fullWidth
@@ -228,8 +228,8 @@ export default function Pengaturan() {
             helperText={
               form.confirmPassword.length > 0
                 ? form.confirmPassword === form.newPassword
-                  ? "✓ Password cocok"
-                  : "✗ Password tidak cocok"
+                  ? "✓ Kata Sandi cocok"
+                  : "✗ Kata Sandi tidak cocok"
                 : ""
             }
             FormHelperTextProps={{
@@ -270,7 +270,7 @@ export default function Pengaturan() {
               "&:hover": { backgroundColor: "#2e4a7a" },
             }}
           >
-            {loading ? "Menyimpan..." : "Simpan Password"}
+            {loading ? "Menyimpan..." : "Simpan Kata Sandi"}
           </Button>
         </Paper>
       </Box>

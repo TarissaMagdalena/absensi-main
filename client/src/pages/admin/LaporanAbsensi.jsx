@@ -242,9 +242,14 @@ export default function LaporanAbsensi() {
           justifyContent="space-between"
           mb={2}
         >
-          <Typography variant="h5" fontWeight="bold">
-            Laporan Absensi
-          </Typography>
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Laporan Absensi
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Rekap dan analisis data kehadiran pegawai berdasarkan periode
+            </Typography>
+          </Box>
 
           {/* ── TOGGLE MODE ── */}
           <ToggleButtonGroup
@@ -333,7 +338,7 @@ export default function LaporanAbsensi() {
                   onClick={downloadDetailPDF}
                   sx={{ height: 40 }}
                 >
-                  Download PDF
+                  Unduh PDF
                 </Button>
               </Box>
             </Paper>

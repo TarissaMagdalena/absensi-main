@@ -64,21 +64,24 @@ export default function SidebarAdmin() {
     },
   ];
 
-  // ── Hapus sesi user dan arahkan ke halaman login ──────────────────────────
-  const handleLogout = () => {
-    if (window.confirm("Yakin ingin keluar?")) {
-      localStorage.removeItem("user");
-      navigate("/");
-    }
-  };
-
   return (
     <Drawer
       variant="permanent"
       sx={{
         width: 240,
         flexShrink: 0,
-        "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box" },
+        "& .MuiDrawer-paper": {
+          width: 240,
+          height: "100vh",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          overflowX: "hidden",
+          overflowY: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#fff",
+        },
       }}
     >
       {/* ── Logo aplikasi ── */}
@@ -159,10 +162,21 @@ export default function SidebarAdmin() {
       <Divider />
 
       {/* ── Tombol logout di bagian bawah sidebar ── */}
-      <Box mt="auto">
+      <Box
+        sx={{
+          mt: "auto",
+          backgroundColor: "#fff",
+        }}
+      >
         <List>
           <ListItemButton
-            onClick={handleLogout}
+            onClick={() => {
+              // Hapus sesi user dan arahkan ke halaman login
+              if (window.confirm("Yakin ingin keluar?")) {
+                localStorage.removeItem("user");
+                navigate("/");
+              }
+            }}
             sx={{
               mx: 1,
               mb: 1,

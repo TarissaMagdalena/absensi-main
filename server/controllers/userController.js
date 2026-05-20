@@ -93,17 +93,47 @@ export const updateUser = async (req, res) => {
 
 // DELETE USER
 export const deleteUser = async (req, res) => {
+  const conn = await db.getConnection();
+
   try {
     const { id } = req.params;
 
-    // 🔥 Hapus data pegawai terkait dulu
-    await db.query("DELETE FROM pegawai WHERE user_id = ?", [id]);
+    await conn.beginTransaction();
 
-    // Hapus user
-    await db.query("DELETE FROM users WHERE id = ?", [id]);
+    const [pegawai] = await conn.query(
+      "SELECT id FROM pegawai WHERE user_id = ?",
+      [id],
+    );
+
+    if (pegawai.length > 0) {
+      const pegawaiId = pegawai[0].id;
+
+      await conn.query("DELETE FROM absensi WHERE pegawai_id = ?", [pegawaiId]);
+      await conn.query("DELETE FROM jadwal_pegawai WHERE pegawai_id = ?", [
+        pegawaiId,
+      ]);
+      await conn.query("DELETE FROM jatah_cuti WHERE pegawai_id = ?", [
+        pegawaiId,
+      ]);
+      await conn.query("DELETE FROM pegawai WHERE id = ?", [pegawaiId]);
+    }
+
+    // ✅ Ini yang hilang — hapus dari tabel users
+    await conn.query("DELETE FROM users WHERE id = ?", [id]);
+
+    await conn.commit();
 
     res.json({ message: "Akun berhasil dihapus" });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    await conn.rollback();
+
+    console.error("DELETE USER ERROR:", err);
+
+    res.status(500).json({
+      message: "Gagal menghapus akun",
+      error: err.message,
+    });
+  } finally {
+    conn.release();
   }
 };

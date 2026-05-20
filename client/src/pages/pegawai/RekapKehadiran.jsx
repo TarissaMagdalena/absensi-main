@@ -301,7 +301,7 @@ export default function RekapKehadiran() {
                 sx={{ height: 40 }}
                 onClick={handleDownload}
               >
-                ⬇ Download PDF
+                ⬇ Unduh PDF
               </Button>
             </Grid>
           </Grid>
@@ -333,137 +333,173 @@ export default function RekapKehadiran() {
         </Paper>
 
         {/* ── TABEL REKAP ───────────────────────────────────────────────────── */}
-        <Paper sx={{ p: 2, borderRadius: 3, overflow: "auto" }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>No</TableCell>
-                <TableCell>Tanggal</TableCell>
-                <TableCell>Shift</TableCell>
-                <TableCell>Jam Masuk</TableCell>
-                <TableCell>Area Masuk</TableCell>
-                <TableCell>Jam Pulang</TableCell>
-                <TableCell>Area Pulang</TableCell>
-                <TableCell>Keterangan</TableCell>
-                <TableCell>Status</TableCell>
-              </TableRow>
-            </TableHead>
+        <Paper
+          sx={{
+            borderRadius: 3,
+            overflow: "hidden",
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          }}
+        >
+          <Box sx={{ width: "100%", maxWidth: "100%", overflowX: "auto" }}>
+            <Table
+              sx={{
+                minWidth: 1100,
 
-            <TableBody>
-              {filteredData.length > 0 ? (
-                filteredData.map((item, index) => (
-                  <TableRow
-                    key={item.id}
-                    sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
-                  >
-                    <TableCell>{index + 1}</TableCell>
+                "& .MuiTableCell-root": {
+                  py: 1.2,
+                  px: 2,
+                  fontSize: 13,
+                  borderBottom: "1px solid #ececec",
+                  verticalAlign: "middle",
+                },
 
-                    {/* Tanggal */}
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {formatTanggal(item.tanggal)}
-                    </TableCell>
+                "& .MuiTableHead-root .MuiTableCell-root": {
+                  backgroundColor: "#f7f7f7",
+                  fontWeight: 600,
+                  color: "#444",
+                  py: 1.5,
+                },
 
-                    {/* Shift — tampilkan "-" untuk non-hadir */}
-                    <TableCell>
-                      {isNonHadir(item.status) ? "-" : item.shift_kode || "-"}
-                    </TableCell>
+                "& .MuiTableBody-root .MuiTableRow-root": {
+                  height: 56,
+                },
+              }}
+            >
+              <TableHead>
+                <TableRow>
+                  <TableCell>No</TableCell>
+                  <TableCell>Tanggal</TableCell>
+                  <TableCell>Shift</TableCell>
+                  <TableCell>Jam Masuk</TableCell>
+                  <TableCell>Area Masuk</TableCell>
+                  <TableCell>Jam Pulang</TableCell>
+                  <TableCell>Area Pulang</TableCell>
+                  <TableCell>Keterangan</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
 
-                    {/* Jam Masuk */}
-                    <TableCell>
-                      {item.jam_masuk ? (
-                        <Chip
-                          label={item.jam_masuk}
-                          color={
-                            item.status === "Terlambat" ? "warning" : "default"
-                          }
-                          size="small"
-                        />
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
+              <TableBody>
+                {filteredData.length > 0 ? (
+                  filteredData.map((item, index) => (
+                    <TableRow
+                      key={item.id}
+                      sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
+                    >
+                      <TableCell>{index + 1}</TableCell>
 
-                    {/* Area Masuk */}
-                    <TableCell>
-                      {isNonHadir(item.status) || !item.jam_masuk ? (
-                        "-"
-                      ) : (
-                        <Chip
-                          label={item.status_area || "-"}
-                          color={
-                            item.status_area === "DALAM" ? "success" : "warning"
-                          }
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </TableCell>
+                      {/* Tanggal */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {formatTanggal(item.tanggal)}
+                      </TableCell>
 
-                    {/* Jam Pulang */}
-                    <TableCell>
-                      {item.jam_pulang ? (
-                        <Chip label={item.jam_pulang} size="small" />
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
+                      {/* Shift — tampilkan "-" untuk non-hadir */}
+                      <TableCell>
+                        {isNonHadir(item.status) ? "-" : item.shift_kode || "-"}
+                      </TableCell>
 
-                    {/* Area Pulang */}
-                    <TableCell>
-                      {isNonHadir(item.status) || !item.jam_pulang ? (
-                        "-"
-                      ) : (
-                        <Chip
-                          label={item.status_area_pulang || "-"}
-                          color={
-                            item.status_area_pulang === "DALAM"
-                              ? "success"
-                              : "warning"
-                          }
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </TableCell>
+                      {/* Jam Masuk */}
+                      <TableCell>
+                        {item.jam_masuk ? (
+                          <Chip
+                            label={item.jam_masuk}
+                            color={
+                              item.status === "Terlambat"
+                                ? "warning"
+                                : "default"
+                            }
+                            size="small"
+                          />
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
 
-                    {/* Keterangan:
+                      {/* Area Masuk */}
+                      <TableCell>
+                        {isNonHadir(item.status) || !item.jam_masuk ? (
+                          "-"
+                        ) : (
+                          <Chip
+                            label={item.status_area || "-"}
+                            color={
+                              item.status_area === "DALAM"
+                                ? "success"
+                                : "warning"
+                            }
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+
+                      {/* Jam Pulang */}
+                      <TableCell>
+                        {item.jam_pulang ? (
+                          <Chip label={item.jam_pulang} size="small" />
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+
+                      {/* Area Pulang */}
+                      <TableCell>
+                        {isNonHadir(item.status) || !item.jam_pulang ? (
+                          "-"
+                        ) : (
+                          <Chip
+                            label={item.status_area_pulang || "-"}
+                            color={
+                              item.status_area_pulang === "DALAM"
+                                ? "success"
+                                : "warning"
+                            }
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+
+                      {/* Keterangan:
                         - Non-hadir   → tampilkan keterangan (alasan izin/sakit/cuti/alpha)
                         - Hadir/Terlambat → tampilkan keterangan_pulang (tepat waktu / lembur) */}
-                    <TableCell
-                      sx={{
-                        fontSize: 13,
-                        color: "text.secondary",
-                        minWidth: 160,
-                      }}
-                    >
-                      {isNonHadir(item.status)
-                        ? item.keterangan || "-"
-                        : item.keterangan_pulang || "-"}
-                    </TableCell>
+                      <TableCell
+                        sx={{
+                          fontSize: 13,
+                          color: "text.secondary",
+                          minWidth: 160,
+                        }}
+                      >
+                        {isNonHadir(item.status)
+                          ? item.keterangan || "-"
+                          : item.keterangan_pulang || "-"}
+                      </TableCell>
 
-                    {/* Status */}
-                    <TableCell>
-                      <Chip
-                        label={item.status}
-                        color={getStatusColor(item.status)}
-                        size="small"
-                      />
+                      {/* Status */}
+                      <TableCell>
+                        <Chip
+                          label={item.status}
+                          color={getStatusColor(item.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={9}
+                      align="center"
+                      sx={{ py: 4, color: "text.secondary" }}
+                    >
+                      Tidak ada data absensi
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={9}
-                    align="center"
-                    sx={{ py: 4, color: "text.secondary" }}
-                  >
-                    Tidak ada data absensi
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          </Box>
         </Paper>
       </Box>
 

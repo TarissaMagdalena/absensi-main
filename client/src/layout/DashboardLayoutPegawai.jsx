@@ -3,24 +3,23 @@ import { Box, useMediaQuery, useTheme } from "@mui/material";
 import SidebarPegawai from "../components/SidebarPegawai";
 import Topbar from "../components/Topbar";
 
-// Lebar sidebar — harus konsisten dengan SidebarPegawai & Topbar
 const DRAWER_WIDTH = 240;
 
-// ── DashboardLayoutPegawai ────────────────────────────────────────────────────
-// Layout utama halaman-halaman pegawai.
-// Struktur: Sidebar (fixed kiri) + Topbar (fixed atas) + Content (scroll)
 export default function DashboardLayoutPegawai({ children }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
-  // Di desktop sidebar terbuka by default, di mobile tertutup
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <Box
-      sx={{ display: "flex", backgroundColor: "#f5f6fa", minHeight: "100vh" }}
+      sx={{
+        px: { xs: 3, md: 3 },
+        minHeight: "100vh",
+        width: "100%",
+        overflowX: "hidden",
+        backgroundColor: "#f5f6fa",
+      }}
     >
-      {/* ── Sidebar (fixed, tidak ikut scroll) ──────────────────────────── */}
       <SidebarPegawai
         open={open}
         setOpen={setOpen}
@@ -28,15 +27,45 @@ export default function DashboardLayoutPegawai({ children }) {
         onClose={() => setOpen(false)}
       />
 
-      {/* ── Area konten kanan ────────────────────────────────────────────── */}
-      {/* flexGrow:1 agar mengisi sisa lebar setelah sidebar */}
-      <Box sx={{ flexGrow: 1 }}>
-        {/* ── Topbar (fixed atas) ───────────────────────────────────────── */}
+      <Box
+        component="main"
+        sx={{
+          pt: 2,
+          ml: { xs: 0, md: `${DRAWER_WIDTH}px` },
+          minHeight: "100vh",
+          overflowX: "hidden",
+          backgroundColor: "#f5f6fa",
+
+          "& .MuiTableCell-root": {
+            fontSize: "13px",
+            fontWeight: 400,
+          },
+          "& .MuiButton-root": {
+            fontSize: "13px",
+            fontWeight: 500,
+          },
+          "& .MuiInputBase-root": {
+            fontSize: "14px",
+          },
+          "& .MuiChip-root": {
+            fontSize: "12px",
+          },
+        }}
+      >
         <Topbar onMenuClick={() => setOpen((prev) => !prev)} />
 
-        {/* ── Konten halaman ────────────────────────────────────────────── */}
-        {/* mt:"64px" untuk offset tinggi Topbar agar konten tidak tertutup */}
-        <Box sx={{ px: 3, py: 3, mt: "64px", minHeight: "100vh" }}>
+        <Box
+          sx={{
+            px: { xs: 2, md: 3 },
+            pt: 2,
+            pb: 2,
+            mt: "56px",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            overflowX: "hidden",
+          }}
+        >
           {children}
         </Box>
       </Box>

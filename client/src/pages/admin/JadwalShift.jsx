@@ -786,7 +786,7 @@ export default function JadwalShift() {
                 )
               }
             >
-              Download PDF
+              Unduh PDF
             </Button>
             <Button
               variant="contained"

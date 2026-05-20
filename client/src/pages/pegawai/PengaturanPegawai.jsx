@@ -73,7 +73,7 @@ export default function PengaturanPegawai() {
       return showSnackbar("Konfirmasi password tidak cocok", "error");
     }
     if (strength.score < 2) {
-      return showSnackbar("Password terlalu lemah", "error");
+      return showSnackbar("Kata Sandi terlalu lemah", "error");
     }
 
     try {
@@ -99,7 +99,7 @@ export default function PengaturanPegawai() {
 
       setPassword({ current: "", new: "", confirm: "" });
       setStrength({ score: 0, label: "" });
-      showSnackbar("Password berhasil diubah");
+      showSnackbar("Kata Sandi berhasil diubah");
     } catch {
       showSnackbar("Gagal terhubung ke server", "error");
     }
@@ -112,7 +112,7 @@ export default function PengaturanPegawai() {
           Pengaturan Akun
         </Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
-          Perbarui password akun Anda secara berkala untuk keamanan
+          Perbarui kata sandi akun Anda secara berkala untuk keamanan
         </Typography>
 
         {/* ================= PROFILE ================= */}
@@ -138,18 +138,18 @@ export default function PengaturanPegawai() {
             />
             <TextField
               size="small"
-              label="Email"
+              label="Nama Pengguna"
               value={user?.email || "-"}
               disabled
               sx={{ minWidth: 220 }}
-              helperText="Email tidak dapat diubah"
+              helperText="Nama Pengguna tidak dapat diubah"
             />
           </Box>
         </Paper>
         {/* ================= PASSWORD ================= */}
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           <Typography fontWeight="bold" mb={2}>
-            Ubah Password
+            Ubah Kata Sandi
           </Typography>
 
           <Box
@@ -164,7 +164,7 @@ export default function PengaturanPegawai() {
               <TextField
                 size="small"
                 type={showPassword.current ? "text" : "password"}
-                label="Password Saat Ini"
+                label="Kata Sandi Saat Ini"
                 value={password.current}
                 sx={{ minWidth: 200 }}
                 onChange={(e) =>
@@ -190,7 +190,7 @@ export default function PengaturanPegawai() {
                 <TextField
                   size="small"
                   type={showPassword.new ? "text" : "password"}
-                  label="Password Baru"
+                  label="Kata Sandi Baru"
                   value={password.new}
                   sx={{ minWidth: 200 }}
                   onChange={(e) => {
@@ -258,7 +258,7 @@ export default function PengaturanPegawai() {
               <TextField
                 size="small"
                 type={showPassword.confirm ? "text" : "password"}
-                label="Konfirmasi Password"
+                label="Konfirmasi Kata Sandi"
                 value={password.confirm}
                 sx={{ minWidth: 200 }}
                 onChange={(e) =>
@@ -285,7 +285,7 @@ export default function PengaturanPegawai() {
               color="secondary"
               onClick={handleUpdatePassword}
             >
-              Update Password
+              Perbarui Kata Sandi
             </Button>
           </Box>
         </Paper>

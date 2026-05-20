@@ -157,7 +157,7 @@ export default function Login() {
             fullWidth
             size="medium"
             id="nama-pengguna"
-            placeholder="Masukkan email"
+            placeholder="Masukkan Nama Pengguna"
             value={namaPengguna}
             onChange={(e) => setNamaPengguna(e.target.value)}
             required

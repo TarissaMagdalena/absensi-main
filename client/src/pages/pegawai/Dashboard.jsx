@@ -510,7 +510,7 @@ export default function Dashboard() {
           </Paper>
 
           {/* TOMBOL ABSEN */}
-          <Box display="flex" gap={3}>
+          <Box display="flex" gap={2}>
             {/* MASUK */}
             <Paper
               onClick={() => {

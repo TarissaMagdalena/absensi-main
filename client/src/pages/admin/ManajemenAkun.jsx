@@ -39,6 +39,10 @@ export default function ManajemenAkun() {
   const [dialogEdit, setDialogEdit] = useState(false);
   const [editData, setEditData] = useState(null);
   const [gantiPassword, setGantiPassword] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    item: null,
+  });
 
   const closeNotif = () => setNotif((n) => ({ ...n, open: false }));
   const showNotif = (message, severity = "success") =>
@@ -138,18 +142,30 @@ export default function ManajemenAkun() {
   };
 
   // ── Hapus akun ──
-  const handleDelete = async (id) => {
-    if (!window.confirm("Yakin hapus akun ini?")) return;
+
+  const handleDelete = async () => {
     try {
-      const res = await apiFetch(`http://localhost:5000/api/users/${id}`, {
-        method: "DELETE",
-      });
+      const res = await apiFetch(
+        `http://localhost:5000/api/users/${deleteDialog.item.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
       const data = await res.json();
+
       if (!res.ok) {
         showNotif(data.message, "error");
         return;
       }
+
       showNotif("Akun berhasil dihapus");
+
+      setDeleteDialog({
+        open: false,
+        item: null,
+      });
+
       loadAkun();
     } catch {
       showNotif("Gagal menghapus akun", "error");
@@ -188,7 +204,7 @@ export default function ManajemenAkun() {
             />
             <TextField
               size="small"
-              label="Email"
+              label="Nama Pengguna"
               name="email"
               type="email"
               value={form.email}
@@ -197,7 +213,7 @@ export default function ManajemenAkun() {
             />
             <TextField
               size="small"
-              label="Password"
+              label="Kata Sandi"
               name="password"
               type="password"
               value={form.password}
@@ -230,11 +246,11 @@ export default function ManajemenAkun() {
       {/* TABEL */}
       <Paper sx={{ p: 2, borderRadius: 3 }}>
         <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+          <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+            <TableRow>
               <TableCell>No</TableCell>
               <TableCell>Nama</TableCell>
-              <TableCell>Email</TableCell>
+              <TableCell>Nama Pengguna</TableCell>
               <TableCell>Role</TableCell>
               <TableCell align="center">Aksi</TableCell>
             </TableRow>
@@ -271,7 +287,12 @@ export default function ManajemenAkun() {
                         <IconButton
                           color="error"
                           size="small"
-                          onClick={() => handleDelete(a.id)}
+                          onClick={() =>
+                            setDeleteDialog({
+                              open: true,
+                              item: a,
+                            })
+                          }
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -319,7 +340,7 @@ export default function ManajemenAkun() {
               <TextField
                 fullWidth
                 size="small"
-                label="Email"
+                label="Nama Pengguna"
                 type="email"
                 value={editData.email}
                 onChange={(e) =>
@@ -349,7 +370,7 @@ export default function ManajemenAkun() {
                 justifyContent="space-between"
               >
                 <Typography fontSize={14} color="text.secondary">
-                  Ganti Password
+                  Ganti Kata Sandi
                 </Typography>
                 <Button
                   size="small"
@@ -359,7 +380,7 @@ export default function ManajemenAkun() {
                     setEditData({ ...editData, password: "" });
                   }}
                 >
-                  {gantiPassword ? "Batal Ganti" : "Ganti Password"}
+                  {gantiPassword ? "Batal Ganti" : "Ganti Kata Sandi"}
                 </Button>
               </Box>
 
@@ -367,7 +388,7 @@ export default function ManajemenAkun() {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Password Baru"
+                  label="Kata Sandi Baru"
                   type="password"
                   value={editData.password}
                   onChange={(e) =>
@@ -386,6 +407,76 @@ export default function ManajemenAkun() {
           </Button>
           <Button variant="contained" onClick={handleSimpanEdit}>
             Simpan
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG HAPUS */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() =>
+          setDeleteDialog({
+            open: false,
+            item: null,
+          })
+        }
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: 20,
+            pb: 1,
+          }}
+        >
+          Hapus Akun
+        </DialogTitle>
+
+        <DialogContent>
+          <Typography sx={{ fontSize: 16, lineHeight: 1.7 }}>
+            Hapus akun <strong>{deleteDialog.item?.nama}</strong>?
+          </Typography>
+
+          <Typography
+            sx={{
+              mt: 2,
+              color: "#e53935",
+              fontSize: 14,
+            }}
+          >
+            Tindakan ini tidak bisa dibatalkan.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() =>
+              setDeleteDialog({
+                open: false,
+                item: null,
+              })
+            }
+            sx={{
+              color: "#1976d2",
+              fontWeight: 500,
+            }}
+          >
+            BATAL
+          </Button>
+
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDelete}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              fontWeight: 600,
+              boxShadow: "none",
+            }}
+          >
+            HAPUS
           </Button>
         </DialogActions>
       </Dialog>

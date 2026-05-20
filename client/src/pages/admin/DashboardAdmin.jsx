@@ -72,7 +72,12 @@ export default function DashboardAdmin() {
   if (loading) {
     return (
       <DashboardLayoutAdmin>
-        <Box display="flex" justifyContent="center" alignItems="center" mt={10}>
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="300px"
+        >
           <CircularProgress />
         </Box>
       </DashboardLayoutAdmin>
@@ -107,163 +112,199 @@ export default function DashboardAdmin() {
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutAdmin>
-      {/* ── HEADER ── */}
-      <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          Dashboard Admin
-        </Typography>
-        <Typography color="text.secondary">
-          Monitoring aktivitas absensi hari ini
-        </Typography>
-      </Paper>
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+        }}
+      >
+        {/* HEADER */}
+        <Paper
+          sx={{
+            p: 3,
+            borderRadius: 4,
+            mb: 4,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: "28px !important",
+              fontWeight: "800 !important",
+              lineHeight: 1.1,
+              letterSpacing: "-0.5px",
+            }}
+          >
+            Dashboard Admin
+          </Typography>
 
-      {/* ── KPI CARDS: Total Pegawai | Hadir | Terlambat ── */}
-      <Grid container spacing={2} mb={3}>
-        {kpiCards.map((card) => (
-          <Grid key={card.label} size={{ xs: 12, sm: 4 }}>
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                backgroundColor: card.bg,
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                height: "100%",
-              }}
-            >
-              {/* Icon bulat */}
-              <Box
+          <Typography
+            sx={{
+              fontSize: 14,
+              color: "text.secondary",
+              mt: 0.5,
+            }}
+          >
+            Monitoring aktivitas absensi hari ini
+          </Typography>
+        </Paper>
+
+        {/* KPI CARDS */}
+        <Grid container spacing={2} mb={3}>
+          {kpiCards.map((card) => (
+            <Grid key={card.label} size={{ xs: 12, sm: 4 }}>
+              <Paper
                 sx={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(255,255,255,0.7)",
+                  p: 2.5,
+                  borderRadius: 3,
+                  backgroundColor: card.bg,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
+                  gap: 2,
+                  height: 105,
                 }}
               >
-                {card.icon}
-              </Box>
-
-              {/* Nilai & label */}
-              <Box>
-                <Typography
-                  fontWeight="bold"
-                  fontSize={32}
-                  color={card.color}
-                  lineHeight={1}
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255,255,255,0.7)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
                 >
-                  {card.value ?? "-"}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color={card.color}
-                  fontWeight={500}
-                  mt={0.5}
-                >
-                  {card.label}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
+                  {card.icon}
+                </Box>
 
-      {/* ── DAFTAR STATUS PEGAWAI HARI INI ── */}
-      <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-        <Typography fontWeight="bold" mb={2}>
-          Pegawai
-        </Typography>
-
-        {summary?.pegawaiHariIni?.length === 0 ? (
-          <Typography color="text.secondary">
-            Belum ada data pegawai.
-          </Typography>
-        ) : (
-          <List disablePadding>
-            {summary?.pegawaiHariIni?.map((p, i) => (
-              <Box key={i}>
-                <ListItem
-                  disablePadding
-                  sx={{ py: 1 }}
-                  secondaryAction={
-                    <Chip
-                      label={p.status ?? "Belum Absen"}
-                      color={getStatusColor(p.status)}
-                      size="small"
-                    />
-                  }
-                >
-                  <ListItemText primary={p.nama} />
-                </ListItem>
-                {/* Divider antar pegawai kecuali yang terakhir */}
-                {i < summary.pegawaiHariIni.length - 1 && <Divider />}
-              </Box>
-            ))}
-          </List>
-        )}
-      </Paper>
-
-      {/* ── AKTIVITAS TERBARU (10 absensi terakhir hari ini) ── */}
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Typography fontWeight="bold" mb={2}>
-          Aktivitas Terbaru
-        </Typography>
-
-        {summary?.aktivitas?.length === 0 ? (
-          <Typography color="text.secondary">
-            Belum ada aktivitas hari ini.
-          </Typography>
-        ) : (
-          summary?.aktivitas?.map((item, i) => (
-            <Box
-              key={i}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                p: 2,
-                borderRadius: 3,
-                backgroundColor: "#e3f2fd",
-                mb: 1,
-                "&:hover": { backgroundColor: "#dbeafe" },
-              }}
-            >
-              <HistoryIcon sx={{ color: "#1976d2", flexShrink: 0 }} />
-              <Box>
-                {/* Nama & status */}
-                <Typography fontWeight="bold" fontSize={14}>
-                  {item.nama} —{" "}
+                <Box>
                   <Typography
-                    component="span"
-                    fontSize={14}
-                    color={
-                      item.status === "Terlambat"
-                        ? "warning.main"
-                        : "text.primary"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: 26,
+                      color: card.color,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {card.value ?? "-"}
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      fontSize: 14,
+                      color: card.color,
+                      fontWeight: 500,
+                      mt: 0.7,
+                    }}
+                  >
+                    {card.label}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* DAFTAR PEGAWAI */}
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>
+            Pegawai
+          </Typography>
+
+          {summary?.pegawaiHariIni?.length === 0 ? (
+            <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
+              Belum ada data pegawai.
+            </Typography>
+          ) : (
+            <List disablePadding>
+              {summary?.pegawaiHariIni?.map((p, i) => (
+                <Box key={i}>
+                  <ListItem
+                    disablePadding
+                    sx={{ py: 1 }}
+                    secondaryAction={
+                      <Chip
+                        label={p.status ?? "Belum Absen"}
+                        color={getStatusColor(p.status)}
+                        size="small"
+                      />
                     }
                   >
-                    {item.status}
+                    <ListItemText
+                      primary={p.nama}
+                      primaryTypographyProps={{
+                        fontSize: 14,
+                        fontWeight: 400,
+                      }}
+                    />
+                  </ListItem>
+
+                  {i < summary.pegawaiHariIni.length - 1 && <Divider />}
+                </Box>
+              ))}
+            </List>
+          )}
+        </Paper>
+
+        {/* AKTIVITAS TERBARU */}
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>
+            Aktivitas Terbaru
+          </Typography>
+
+          {summary?.aktivitas?.length === 0 ? (
+            <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
+              Belum ada aktivitas hari ini.
+            </Typography>
+          ) : (
+            summary?.aktivitas?.map((item, i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  p: 2,
+                  borderRadius: 3,
+                  backgroundColor: "#e3f2fd",
+                  mb: 1,
+                  "&:hover": { backgroundColor: "#dbeafe" },
+                }}
+              >
+                <HistoryIcon sx={{ color: "#1976d2", flexShrink: 0 }} />
+
+                <Box>
+                  <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                    {item.nama} —{" "}
+                    <Typography
+                      component="span"
+                      sx={{
+                        fontSize: 14,
+                        color:
+                          item.status === "Terlambat"
+                            ? "warning.main"
+                            : "text.primary",
+                      }}
+                    >
+                      {item.status}
+                    </Typography>
                   </Typography>
-                </Typography>
 
-                {/* Tanggal */}
-                <Typography fontSize={13} color="text.secondary">
-                  {formatTanggal(item.tanggal)}
-                </Typography>
+                  <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+                    {formatTanggal(item.tanggal)}
+                  </Typography>
 
-                {/* Jam masuk */}
-                <Typography fontSize={12} color="text.secondary">
-                  Jam masuk: {item.jam_masuk ?? "-"}
-                </Typography>
+                  <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                    Jam masuk: {item.jam_masuk ?? "-"}
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
-          ))
-        )}
-      </Paper>
+            ))
+          )}
+        </Paper>
+      </Box>
     </DashboardLayoutAdmin>
   );
 }
