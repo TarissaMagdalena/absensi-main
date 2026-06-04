@@ -2,21 +2,37 @@ import { useState } from "react";
 import { apiFetch } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  InputAdornment,
-  IconButton,
   Alert,
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
   Paper,
+  TextField,
+  Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
+// Gaya TextField yang konsisten
+const tfSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "14px",
+    backgroundColor: "#f8f9fb",
+    "& fieldset": { borderColor: "#e0e3eb", borderWidth: "1.5px" },
+    "&:hover fieldset": { borderColor: "#1c2b4a" },
+    "&.Mui-focused fieldset": { borderColor: "#1c2b4a" },
+  },
+  "& .MuiInputBase-input": { padding: "14px 16px" },
+};
+
 export default function Login() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const _isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [namaPengguna, setNamaPengguna] = useState("");
   const [kataSandi, setKataSandi] = useState("");
@@ -26,34 +42,22 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    localStorage.removeItem("user"); // hapus sesi lama sebelum login baru
+    localStorage.removeItem("user");
     setError("");
     setLoading(true);
-
     try {
       const res = await apiFetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: namaPengguna,
-          password: kataSandi,
-        }),
+        body: JSON.stringify({ username: namaPengguna, password: kataSandi }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.message || "Login gagal");
         return;
       }
-
       localStorage.setItem("user", JSON.stringify(data.user));
-
-      if (data.user.role === "admin") {
-        navigate("/admin/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(data.user.role === "admin" ? "/admin/dashboard" : "/dashboard");
     } catch (err) {
       console.error("Login error:", err);
       setError("Gagal terhubung ke server");
@@ -65,48 +69,49 @@ export default function Login() {
   return (
     <Box
       sx={{
-        height: "100vh",
+        minHeight: "100vh",
         display: "flex",
+        flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        position: "relative",
-        // gradient background
         background: "linear-gradient(135deg, #1c2b4a 0%, #2e4a7a 100%)",
+        px: { xs: 5, sm: 0 }, // padding kiri-kanan di mobile — lebih besar = card lebih sempit
       }}
     >
-      {/* BRAND */}
+      {/* Brand — di atas card, tampil di semua ukuran */}
       <Typography
         sx={{
-          position: "absolute",
-          top: 40,
-          left: 60,
-          fontSize: 26,
+          fontSize: { xs: 22, sm: 26 },
           fontWeight: 800,
           color: "white",
           letterSpacing: 1,
+          mb: { xs: 2, sm: 3 },
+          // Desktop: absolute pojok kiri atas; Mobile: di tengah atas card
+          position: { sm: "absolute" },
+          top: { sm: 40 },
+          left: { sm: 60 },
+          textAlign: { xs: "center", sm: "left" },
         }}
       >
         E-Absen
       </Typography>
 
-      {/* CARD */}
+      {/* Card login */}
       <Paper
         elevation={0}
         sx={{
           width: "100%",
           maxWidth: 420,
-          p: 5,
-          borderRadius: 4,
+          // Mobile: padding lebih kecil, tidak ada hover lift
+          p: { xs: 3, sm: 5 },
+          borderRadius: { xs: 3, sm: 4 },
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-          // efek glassmorphism ringan
           background: "rgba(255,255,255,0.97)",
           transition: "transform 0.3s ease",
-          "&:hover": {
-            transform: "translateY(-4px)",
-          },
+          "&:hover": { transform: { sm: "translateY(-4px)" } },
         }}
       >
-        {/* ICON */}
+        {/* Icon kunci */}
         <Box display="flex" justifyContent="center" mb={2}>
           <Box
             sx={{
@@ -141,7 +146,7 @@ export default function Login() {
           Masuk ke sistem E-Absen
         </Typography>
 
-        {/* ERROR */}
+        {/* Pesan error */}
         {error && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
             {error}
@@ -149,60 +154,40 @@ export default function Login() {
         )}
 
         <Box component="form" onSubmit={handleSubmit}>
-          {/* NAMA PENGGUNA */}
+          {/* Nama Pengguna */}
           <Typography mb={1} fontSize={13} fontWeight={600} color="#1c2b4a">
             Nama Pengguna
           </Typography>
           <TextField
             fullWidth
             size="medium"
-            id="nama-pengguna"
             placeholder="Masukkan Nama Pengguna"
             value={namaPengguna}
             onChange={(e) => setNamaPengguna(e.target.value)}
             required
-            sx={{
-              mb: 2.5,
-              "& .MuiOutlinedInput-root": {
-                borderRadius: "14px",
-                backgroundColor: "#f8f9fb",
-                "& fieldset": { borderColor: "#e0e3eb", borderWidth: "1.5px" },
-                "&:hover fieldset": { borderColor: "#1c2b4a" },
-                "&.Mui-focused fieldset": { borderColor: "#1c2b4a" },
-              },
-              "& .MuiInputBase-input": { padding: "14px 16px" },
-            }}
+            autoComplete="username"
+            sx={{ mb: 2.5, ...tfSx }}
           />
 
-          {/* KATA SANDI */}
+          {/* Kata Sandi */}
           <Typography mb={1} fontSize={13} fontWeight={600} color="#1c2b4a">
             Kata Sandi
           </Typography>
           <TextField
             fullWidth
             size="medium"
-            id="kata-sandi"
             placeholder="Masukkan kata sandi"
             type={showPassword ? "text" : "password"}
             value={kataSandi}
             onChange={(e) => setKataSandi(e.target.value)}
             required
-            sx={{
-              mb: 3,
-              "& .MuiOutlinedInput-root": {
-                borderRadius: "14px",
-                backgroundColor: "#f8f9fb",
-                "& fieldset": { borderColor: "#e0e3eb", borderWidth: "1.5px" },
-                "&:hover fieldset": { borderColor: "#1c2b4a" },
-                "&.Mui-focused fieldset": { borderColor: "#1c2b4a" },
-              },
-              "& .MuiInputBase-input": { padding: "14px 16px" },
-            }}
+            autoComplete="current-password"
+            sx={{ mb: 3, ...tfSx }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((p) => !p)}
                     edge="end"
                   >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -212,14 +197,14 @@ export default function Login() {
             }}
           />
 
-          {/* BUTTON */}
+          {/* Tombol masuk */}
           <Button
             type="submit"
             fullWidth
             variant="contained"
             disabled={loading}
             sx={{
-              py: 1.5,
+              py: { xs: 1.3, sm: 1.5 },
               borderRadius: "14px",
               backgroundColor: "#1c2b4a",
               textTransform: "none",

@@ -332,8 +332,9 @@ router.post("/salin", async (req, res) => {
     const [tahunKe, bulanKe] = ke.split("-").map(Number);
 
     await conn.query(
-      `DELETE FROM jadwal_pegawai WHERE DATE_FORMAT(tanggal, '%Y-%m') = ?`,
-      [ke],
+      `DELETE FROM jadwal_pegawai 
+   WHERE YEAR(tanggal) = ? AND MONTH(tanggal) = ?`,
+      [tahunKe, bulanKe],
     );
 
     const values = sumber.map((j) => {
@@ -349,7 +350,10 @@ router.post("/salin", async (req, res) => {
     });
 
     await conn.query(
-      `INSERT INTO jadwal_pegawai (pegawai_id, tanggal, shift_kode, keterangan) VALUES ?`,
+      `INSERT INTO jadwal_pegawai (pegawai_id, tanggal, shift_kode, keterangan) VALUES ?
+   ON DUPLICATE KEY UPDATE 
+     shift_kode = VALUES(shift_kode),
+     keterangan = VALUES(keterangan)`,
       [values],
     );
 

@@ -5,35 +5,31 @@ import bcrypt from "bcrypt";
 const router = express.Router();
 
 // ================= LOGIN =================
+// LOGIN
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body; // ← email → username
 
-    if (!email || !password) {
+    if (!username || !password) {
       return res
         .status(400)
-        .json({ message: "Email dan password wajib diisi" });
+        .json({ message: "Nama Pengguna dan Kata Sandi wajib diisi" });
     }
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
+    const [rows] = await db.query("SELECT * FROM users WHERE username = ?", [
+      username,
+    ]); // ← WHERE email → username
 
     if (rows.length === 0) {
-      return res.status(401).json({ message: "Email tidak ditemukan" });
+      return res.status(401).json({ message: "Nama Pengguna tidak ditemukan" }); // ← pesan
     }
 
     const user = rows[0];
-
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      return res.status(401).json({ message: "Password salah" });
-    }
+    if (!valid) return res.status(401).json({ message: "Kata Sandi salah" });
 
-    // 🔥 Ambil pegawai_id dan nik berdasarkan user_id
     let pegawai_id = null;
     let nik = null;
-
     if (user.role === "pegawai") {
       const [pegawai] = await db.query(
         "SELECT id, nik FROM pegawai WHERE user_id = ?",
@@ -51,13 +47,12 @@ router.post("/login", async (req, res) => {
         id: user.id,
         pegawai_id,
         nama: user.nama,
-        email: user.email,
+        username: user.username,
         role: user.role,
         nik,
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
@@ -71,11 +66,11 @@ router.put("/change-password", async (req, res) => {
   }
 
   if (newPassword !== confirmPassword) {
-    return res.status(400).json({ message: "Password baru tidak sama" });
+    return res.status(400).json({ message: "Kata Sandi baru tidak sama" });
   }
 
   if (newPassword.length < 6) {
-    return res.status(400).json({ message: "Password minimal 6 karakter" });
+    return res.status(400).json({ message: "Kata Sandi minimal 6 karakter" });
   }
 
   try {
@@ -84,14 +79,14 @@ router.put("/change-password", async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ message: "User tidak ditemukan" });
+      return res.status(404).json({ message: "Pengguna tidak ditemukan" });
     }
 
     const user = rows[0];
 
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) {
-      return res.status(401).json({ message: "Password saat ini salah" });
+      return res.status(401).json({ message: "Kata Sandi saat ini salah" });
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -101,7 +96,7 @@ router.put("/change-password", async (req, res) => {
       user.id,
     ]);
 
-    res.json({ message: "Password berhasil diubah" });
+    res.json({ message: "Kata Sandi berhasil diubah" });
   } catch (err) {
     console.error("Change password error:", err);
     res.status(500).json({ message: "Server error", error: err.message });

@@ -1,6 +1,6 @@
 import express from "express";
 import PDFDocument from "pdfkit";
-import ExcelJS from "exceljs"; // npm install exceljs
+import ExcelJS from "exceljs";
 import { db } from "../db.js";
 
 const router = express.Router();
@@ -34,18 +34,19 @@ function getStatusColor(status) {
     Izin: "#1565c0",
     Sakit: "#6a1b9a",
     Cuti: "#00695c",
-    Alpha: "#c62828",
+    Alfa: "#c62828",
   };
   return m[status] || "#333333";
 }
+
 function getAreaColor(area) {
   if (!area || area === "-") return "#999999";
   return area === "DALAM" ? "#2e7d32" : "#c62828";
 }
 
-const NON_HADIR = ["Izin", "Sakit", "Cuti", "Alpha"];
+const NON_HADIR = ["Izin", "Sakit", "Cuti", "Alfa"];
 
-// ── argb dari hex (#rrggbb) ─────────────────────────────────────────────────
+// ── argb dari hex (#rrggbb) ──────────────────────────────────────────────────
 const toArgb = (hex) => "FF" + hex.replace("#", "").toUpperCase();
 
 // ─── GET /api/laporan ─────────────────────────────────────────────────────────
@@ -72,15 +73,14 @@ router.get("/", async (req, res) => {
 });
 
 // ─── GET /api/laporan/rekap-bulanan ──────────────────────────────────────────
-// Query: ?bulan=2026-05
 router.get("/rekap-bulanan", async (req, res) => {
-  const { bulan } = req.query; // "YYYY-MM"
+  const { bulan } = req.query;
   if (!bulan)
     return res.status(400).json({ message: "Parameter bulan diperlukan" });
 
   const [year, month] = bulan.split("-");
   const start = `${year}-${month}-01`;
-  const end = new Date(year, month, 0).toISOString().slice(0, 10); // last day
+  const end = new Date(year, month, 0).toISOString().slice(0, 10);
 
   try {
     const [rows] = await db.query(
@@ -93,7 +93,7 @@ router.get("/rekap-bulanan", async (req, res) => {
          SUM(a.status = 'Sakit')     AS sakit,
          SUM(a.status = 'Izin')      AS izin,
          SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alpha')     AS alpha,
+         SUM(a.status = 'Alfa')      AS Alfa,
          COUNT(*)                    AS total
        FROM pegawai p
        LEFT JOIN absensi a
@@ -110,7 +110,6 @@ router.get("/rekap-bulanan", async (req, res) => {
 });
 
 // ─── GET /api/laporan/rekap-bulanan/download ──────────────────────────────────
-// Query: ?bulan=2026-05&format=pdf|excel
 router.get("/rekap-bulanan/download", async (req, res) => {
   const { bulan, format = "pdf" } = req.query;
   if (!bulan)
@@ -129,7 +128,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
          SUM(a.status = 'Sakit')     AS sakit,
          SUM(a.status = 'Izin')      AS izin,
          SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alpha')     AS alpha,
+         SUM(a.status = 'Alfa')      AS Alfa,
          COUNT(*)                    AS total
        FROM pegawai p
        LEFT JOIN absensi a
@@ -141,10 +140,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
 
     const bulanLabel = new Date(start + "T00:00:00").toLocaleDateString(
       "id-ID",
-      {
-        month: "long",
-        year: "numeric",
-      },
+      { month: "long", year: "numeric" },
     );
 
     // ════════════════════════════════════════════════════════════════════════
@@ -155,7 +151,6 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       wb.creator = "E-Absen";
       const ws = wb.addWorksheet(`Rekap ${bulanLabel}`);
 
-      // Lebar kolom
       ws.columns = [
         { key: "no", width: 5 },
         { key: "nama", width: 28 },
@@ -165,11 +160,11 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         { key: "sakit", width: 10 },
         { key: "izin", width: 10 },
         { key: "cuti", width: 10 },
-        { key: "alpha", width: 10 },
+        { key: "Alfa", width: 10 },
         { key: "total", width: 12 },
       ];
 
-      // ── Baris judul (merge A1:J1) ─────────────────────────────────────
+      // Judul
       ws.mergeCells("A1:J1");
       const titleCell = ws.getCell("A1");
       titleCell.value = `REKAP ABSENSI — ${bulanLabel.toUpperCase()}`;
@@ -182,7 +177,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       titleCell.alignment = { horizontal: "center", vertical: "middle" };
       ws.getRow(1).height = 30;
 
-      // ── Sub-judul ──────────────────────────────────────────────────────
+      // Sub-judul
       ws.mergeCells("A2:J2");
       const subCell = ws.getCell("A2");
       subCell.value = `Periode: ${formatTanggalIndo(start)} s/d ${formatTanggalIndo(end)}`;
@@ -190,9 +185,9 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       subCell.alignment = { horizontal: "center" };
       ws.getRow(2).height = 18;
 
-      ws.addRow([]); // baris kosong
+      ws.addRow([]);
 
-      // ── Header kolom ──────────────────────────────────────────────────
+      // Header kolom
       const HEADERS = [
         "No",
         "Nama Pegawai",
@@ -202,7 +197,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         "Sakit",
         "Izin",
         "Cuti",
-        "Alpha",
+        "Alfa",
         "Total",
       ];
       const hdrRow = ws.addRow(HEADERS);
@@ -223,14 +218,14 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       });
       ws.getRow(4).height = 22;
 
-      // ── Data rows ─────────────────────────────────────────────────────
+      // Data rows
       const STATUS_COLORS = {
         hadir: { argb: toArgb("#e8f5e9"), txt: toArgb("#2e7d32") },
         terlambat: { argb: toArgb("#fff3e0"), txt: toArgb("#e65100") },
         sakit: { argb: toArgb("#e1f5fe"), txt: toArgb("#0277bd") },
         izin: { argb: "FFF5F5F5", txt: "FF555555" },
         cuti: { argb: toArgb("#f3e5f5"), txt: toArgb("#6a1b9a") },
-        alpha: { argb: toArgb("#ffebee"), txt: toArgb("#c62828") },
+        Alfa: { argb: toArgb("#ffebee"), txt: toArgb("#c62828") },
       };
 
       data.forEach((r, i) => {
@@ -243,11 +238,10 @@ router.get("/rekap-bulanan/download", async (req, res) => {
           Number(r.sakit),
           Number(r.izin),
           Number(r.cuti),
-          Number(r.alpha),
+          Number(r.Alfa),
           Number(r.total),
         ]);
         row.height = 18;
-
         const bgArgb = i % 2 === 0 ? "FFFFFFFF" : "FFF9F9F9";
 
         row.eachCell((cell, colNum) => {
@@ -257,9 +251,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
             left: { style: "thin", color: { argb: "FFE0E0E0" } },
             right: { style: "thin", color: { argb: "FFE0E0E0" } },
           };
-
           if (colNum <= 3) {
-            // No, Nama, NIK — background zebra biasa
             cell.fill = {
               type: "pattern",
               pattern: "solid",
@@ -270,7 +262,6 @@ router.get("/rekap-bulanan/download", async (req, res) => {
               horizontal: colNum === 1 ? "center" : "left",
             };
           } else if (colNum === 10) {
-            // Total — bold
             cell.font = { bold: true };
             cell.fill = {
               type: "pattern",
@@ -279,14 +270,13 @@ router.get("/rekap-bulanan/download", async (req, res) => {
             };
             cell.alignment = { horizontal: "center", vertical: "middle" };
           } else {
-            // Kolom status — warna sesuai
             const keys = [
               "hadir",
               "terlambat",
               "sakit",
               "izin",
               "cuti",
-              "alpha",
+              "Alfa",
             ];
             const sc = STATUS_COLORS[keys[colNum - 4]];
             cell.fill = {
@@ -300,7 +290,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         });
       });
 
-      // ── Baris total bawah ─────────────────────────────────────────────
+      // Baris total bawah
       const totalRow = ws.addRow([
         "",
         "TOTAL",
@@ -310,7 +300,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         data.reduce((s, r) => s + Number(r.sakit), 0),
         data.reduce((s, r) => s + Number(r.izin), 0),
         data.reduce((s, r) => s + Number(r.cuti), 0),
-        data.reduce((s, r) => s + Number(r.alpha), 0),
+        data.reduce((s, r) => s + Number(r.Alfa), 0),
         data.reduce((s, r) => s + Number(r.total), 0),
       ]);
       totalRow.eachCell((cell) => {
@@ -329,7 +319,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         cell.alignment = { horizontal: "center", vertical: "middle" };
       });
 
-      // ── Footer ────────────────────────────────────────────────────────
+      // Footer
       ws.addRow([]);
       const footerRow = ws.addRow([
         "",
@@ -365,7 +355,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // FORMAT: PDF (default)
+    // FORMAT: PDF (rekap bulanan)
     // ════════════════════════════════════════════════════════════════════════
     const doc = new PDFDocument({
       margin: 40,
@@ -407,7 +397,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       sakit: 55,
       izin: 55,
       cuti: 55,
-      alpha: 55,
+      Alfa: 55,
     };
     colW.total = CW - Object.values(colW).reduce((a, b) => a + b, 0);
 
@@ -427,7 +417,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       { k: "sakit", l: "Sakit", align: "center" },
       { k: "izin", l: "Izin", align: "center" },
       { k: "cuti", l: "Cuti", align: "center" },
-      { k: "alpha", l: "Alpha", align: "center" },
+      { k: "Alfa", l: "Alfa", align: "center" },
       { k: "total", l: "Total", align: "center" },
     ];
 
@@ -442,6 +432,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
     drawHdr(tableTop);
     let rowY = tableTop + ROW_H;
 
+    // ── Data rows ─────────────────────────────────────────────────────────
     data.forEach((r, i) => {
       if (rowY + ROW_H > doc.page.height - 50) {
         doc.addPage({ size: "A4", layout: "landscape", margin: 40 });
@@ -452,6 +443,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       const bg = i % 2 === 0 ? "#ffffff" : "#f9f9f9";
       doc.rect(ML, rowY, CW, ROW_H).fill(bg).stroke("#e8e8e8");
       const cy = rowY + 7;
+
       doc.fillColor("#333").font("Helvetica").fontSize(8.5);
       doc.text(String(i + 1), col.no.x + 3, cy, {
         width: col.no.w - 6,
@@ -465,9 +457,9 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         ["hadir", "#2e7d32"],
         ["terlambat", "#e65100"],
         ["sakit", "#0277bd"],
-        ["izin", "#555"],
+        ["izin", "#555555"],
         ["cuti", "#6a1b9a"],
-        ["alpha", "#c62828"],
+        ["Alfa", "#c62828"],
       ].forEach(([k, clr]) => {
         doc
           .fillColor(clr)
@@ -488,7 +480,81 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       rowY += ROW_H;
     });
 
-    // Footer
+    // ── Baris TOTAL ───────────────────────────────────────────────────────
+    const totalHadir = data.reduce(
+      (s, r) => s + (r.status === "Hadir" ? 1 : 0),
+      0,
+    );
+    const totalTerlambat = data.reduce(
+      (s, r) => s + (r.status === "Terlambat" ? 1 : 0),
+      0,
+    );
+    const totalSakit = data.reduce(
+      (s, r) => s + (r.status === "Sakit" ? 1 : 0),
+      0,
+    );
+    const totalIzin = data.reduce(
+      (s, r) => s + (r.status === "Izin" ? 1 : 0),
+      0,
+    );
+    const totalCuti = data.reduce(
+      (s, r) => s + (r.status === "Cuti" ? 1 : 0),
+      0,
+    );
+    const totalAlfa = data.reduce(
+      (s, r) => s + (r.status === "Alfa" ? 1 : 0),
+      0,
+    );
+    const totalSemua = data.length;
+
+    // Cek page break sebelum baris total
+    if (rowY + ROW_H > doc.page.height - 50) {
+      doc.addPage({ size: "A4", layout: "landscape", margin: 40 });
+      rowY = 40;
+      drawHdr(rowY);
+      rowY += ROW_H;
+    }
+
+    // Background baris total
+    doc.rect(ML, rowY, CW, ROW_H).fill("#eeeeee").stroke("#1a3c6e");
+    const cy = rowY + 7;
+
+    // Label "TOTAL"
+    doc.fillColor("#1a3c6e").font("Helvetica-Bold").fontSize(8.5);
+    doc.text("TOTAL", col.no.x + 3, cy, {
+      width: col.no.w + col.nama.w + col.nik.w - 6,
+      align: "center",
+    });
+
+    // Nilai total per status
+    [
+      ["hadir", String(totalHadir), "#2e7d32"],
+      ["terlambat", String(totalTerlambat), "#e65100"],
+      ["sakit", String(totalSakit), "#0277bd"],
+      ["izin", String(totalIzin), "#555555"],
+      ["cuti", String(totalCuti), "#6a1b9a"],
+      ["Alfa", String(totalAlfa), "#c62828"],
+    ].forEach(([k, val, clr]) => {
+      doc
+        .fillColor(clr)
+        .font("Helvetica-Bold")
+        .fontSize(8.5)
+        .text(val, col[k].x + 3, cy, { width: col[k].w - 6, align: "center" });
+    });
+
+    // Total keseluruhan
+    doc
+      .fillColor("#333333")
+      .font("Helvetica-Bold")
+      .fontSize(8.5)
+      .text(String(totalSemua), col.total.x + 3, cy, {
+        width: col.total.w - 6,
+        align: "center",
+      });
+
+    rowY += ROW_H;
+
+    // ── Footer ────────────────────────────────────────────────────────────
     doc
       .moveTo(ML, rowY)
       .lineTo(ML + CW, rowY)
@@ -496,7 +562,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       .lineWidth(1)
       .stroke();
     doc
-      .fillColor("#999")
+      .fillColor("#999999")
       .font("Helvetica")
       .fontSize(8)
       .text(
@@ -607,7 +673,7 @@ router.get("/download", async (req, res) => {
     const sakit = data.filter((d) => d.status === "Sakit").length;
     const izin = data.filter((d) => d.status === "Izin").length;
     const cuti = data.filter((d) => d.status === "Cuti").length;
-    const alpha = data.filter((d) => d.status === "Alpha").length;
+    const Alfa = data.filter((d) => d.status === "Alfa").length;
     const total = data.length;
 
     const rekY = infoY + 88;
@@ -629,7 +695,7 @@ router.get("/download", async (req, res) => {
       { label: "Izin", value: izin, color: "#1565c0" },
       { label: "Sakit", value: sakit, color: "#6a1b9a" },
       { label: "Cuti", value: cuti, color: "#00695c" },
-      { label: "Alpha", value: alpha, color: "#c62828" },
+      { label: "Alfa", value: Alfa, color: "#c62828" },
       { label: "Total", value: total, color: "#333333" },
     ];
 
@@ -655,22 +721,20 @@ router.get("/download", async (req, res) => {
     // Tabel detail
     const tableTop = rekY + 82;
     const ROW_H = 22;
-    // CW landscape A4 (margin 40 kiri-kanan) = 841.89 - 80 ≈ 762
-    // Dibagi 9 kolom dengan bobot proporsional, total = 1.00 × CW
+
     const colWidths = {
-      no: Math.round(CW * 0.037), // ~28  — cukup untuk nomor
-      tanggal: Math.round(CW * 0.135), // ~103 — "Rab, 6 Mei 2026"
-      shift: Math.round(CW * 0.06), // ~46
-      masuk: Math.round(CW * 0.082), // ~63
-      areaMasuk: Math.round(CW * 0.082), // ~63
-      pulang: Math.round(CW * 0.082), // ~63
-      areaPulang: Math.round(CW * 0.082), // ~63
-      status: Math.round(CW * 0.082), // ~63
-      ket: 0, // dihitung dari sisa
+      no: Math.round(CW * 0.037),
+      tanggal: Math.round(CW * 0.135),
+      shift: Math.round(CW * 0.06),
+      masuk: Math.round(CW * 0.082),
+      areaMasuk: Math.round(CW * 0.082),
+      pulang: Math.round(CW * 0.082),
+      areaPulang: Math.round(CW * 0.082),
+      status: Math.round(CW * 0.082),
+      ket: 0,
     };
-    // Pastikan total = CW tepat (anti floating-point gap)
     const usedW = Object.values(colWidths).reduce((a, b) => a + b, 0);
-    colWidths.ket = CW - usedW; // sisa ~30% untuk keterangan
+    colWidths.ket = CW - usedW;
 
     const col = {};
     let xCursor = ML;
@@ -679,7 +743,7 @@ router.get("/download", async (req, res) => {
       xCursor += w;
     }
 
-    const headers = [
+    const tblHeaders = [
       { key: "no", label: "No", align: "center" },
       { key: "tanggal", label: "Tanggal", align: "left" },
       { key: "shift", label: "Shift", align: "center" },
@@ -694,7 +758,7 @@ router.get("/download", async (req, res) => {
     const drawHeader = (y) => {
       doc.rect(ML, y, CW, ROW_H).fill("#1a3c6e");
       doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-      headers.forEach(({ key, label, align }) => {
+      tblHeaders.forEach(({ key, label, align }) => {
         doc.text(label, col[key].x + 3, y + 7, {
           width: col[key].w - 6,
           align,
@@ -811,6 +875,7 @@ router.get("/download", async (req, res) => {
       });
     }
 
+    // ── Garis + footer ────────────────────────────────────────────────────
     doc
       .moveTo(ML, rowY)
       .lineTo(ML + CW, rowY)

@@ -3,7 +3,7 @@ C:\xampp\htdocs\absensi-main\server\routes\absensiRoutes.js
   45,1: router.post("/pulang", absenPulang);
   48,1: router.get("/today", getTodayAbsensi);
   51,1: router.get("/hari-ini", async (req, res) => {
-  84,1: router.post("/proses-alpha", async (req, res) => {
+  84,1: router.post("/proses-Alfa", async (req, res) => {
   105,1: router.get("/", async (req, res) => {
   137,1: router.get("/dashboard-summary", async (req, res) => {
   200,1: router.get("/rekapan/:pegawai_id", async (req, res) => {

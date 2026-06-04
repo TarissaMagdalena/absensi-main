@@ -84,19 +84,19 @@ router.put("/:id/reject", async (req, res) => {
       [p.pegawai_id, p.tanggal],
     );
 
-    // 🔥 Insert Alpha kalau belum ada absensi
+    // 🔥 Insert Alfa kalau belum ada absensi
     if (cekAbsen.length === 0) {
       await db.query(
         `INSERT INTO absensi 
         (pegawai_id, tanggal, status, tipe, keterangan, status_area)
-        VALUES (?, ?, 'Alpha', ?, ?, 'LUAR')`,
+        VALUES (?, ?, 'Alfa', ?, ?, 'LUAR')`,
         [p.pegawai_id, p.tanggal, p.tipe, `Pengajuan ${p.tipe} ditolak`],
       );
     }
 
     console.log("❌ Pengajuan ditolak:", p);
 
-    res.json({ message: "Pengajuan ditolak, absensi tercatat sebagai Alpha" });
+    res.json({ message: "Pengajuan ditolak, absensi tercatat sebagai Alfa" });
   } catch (err) {
     console.error("❌ Error reject:", err);
     res.status(500).json({ message: err.message });

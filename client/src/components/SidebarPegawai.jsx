@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Drawer,
@@ -9,27 +9,40 @@ import {
   Typography,
   Box,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from "@mui/material";
+
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import HistoryIcon from "@mui/icons-material/History";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import SettingsIcon from "@mui/icons-material/Settings";
 
-export default function SidebarPegawai() {
+const DRAWER_WIDTH = 240;
+
+export default function SidebarPegawai({ open, isMobile, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [dialogLogout, setDialogLogout] = useState(false);
 
   const user = useMemo(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   }, []);
 
   const iconStyle = { fontSize: 24, color: "#555" };
 
   const menu = [
     {
-      text: "Dashboard",
+      text: "Beranda",
       icon: <DashboardIcon sx={iconStyle} />,
       path: "/dashboard",
     },
@@ -45,27 +58,39 @@ export default function SidebarPegawai() {
     },
   ];
 
-  return (
-    <Drawer
-      variant="permanent"
+  const handleNavigate = (path) => {
+    navigate(path);
+    if (isMobile && onClose) onClose();
+  };
+
+  const handleLogout = () => setDialogLogout(true);
+
+  const handleKonfirmasiLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
+  const drawerPaperStyle = {
+    width: DRAWER_WIDTH,
+    maxWidth: DRAWER_WIDTH,
+    boxSizing: "border-box",
+    overflowX: "hidden",
+    overflowY: "hidden",
+  };
+
+  const drawerContent = (
+    <Box
       sx={{
-        width: 240,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: 240,
-          height: "100vh",
-          position: "fixed",
-          left: 0,
-          top: 0,
-          overflowX: "hidden",
-          overflowY: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: "#fff",
-        },
+        width: DRAWER_WIDTH,
+        maxWidth: DRAWER_WIDTH,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#fff",
+        overflowX: "hidden",
+        overflowY: "hidden",
       }}
     >
-      {/* LOGO */}
       <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
         <Typography variant="h5" fontWeight="bold">
           E-Absen
@@ -74,15 +99,16 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* PROFIL PEGAWAI */}
-      <List>
+      <List sx={{ overflowX: "hidden" }}>
         <ListItemButton
           disableRipple
           sx={{
             mx: 1,
             mb: 1,
             gap: 2,
+            maxWidth: "calc(100% - 16px)",
             cursor: "default",
+            overflowX: "hidden",
             "&:hover": { backgroundColor: "transparent" },
           }}
         >
@@ -98,11 +124,11 @@ export default function SidebarPegawai() {
             />
           </ListItemIcon>
 
-          <Box>
-            <Typography fontSize={14} fontWeight="bold">
+          <Box sx={{ minWidth: 0, overflow: "hidden" }}>
+            <Typography fontSize={14} fontWeight="bold" noWrap>
               {user?.nama || "Pegawai"}
             </Typography>
-            <Typography fontSize={12} color="text.secondary">
+            <Typography fontSize={12} color="text.secondary" noWrap>
               NIK: {user?.nik || "-"}
             </Typography>
           </Box>
@@ -111,38 +137,37 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* MENU */}
-      <List>
+      <List sx={{ flexGrow: 1, overflowX: "hidden" }}>
         {menu.map((item, index) => {
           const active = location.pathname === item.path;
 
           return (
             <ListItemButton
               key={index}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavigate(item.path)}
               sx={{
                 backgroundColor: active ? "#e3f2fd" : "transparent",
                 borderRadius: 2,
                 mx: 1,
                 mb: 1,
                 gap: 2,
-                display: "flex",
-                justifyContent: "space-between",
+                maxWidth: "calc(100% - 16px)",
+                overflowX: "hidden",
                 "&:hover": {
                   backgroundColor: active ? "#e3f2fd" : "#f5f5f5",
                 },
               }}
             >
-              <Box display="flex" alignItems="center" gap={2}>
-                <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: active ? "bold" : "normal",
-                  }}
-                />
-              </Box>
+              <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
+
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: active ? "bold" : "normal",
+                  noWrap: true,
+                }}
+              />
             </ListItemButton>
           );
         })}
@@ -150,43 +175,97 @@ export default function SidebarPegawai() {
 
       <Divider />
 
-      {/* LOGOUT */}
-      <Box
-        sx={{
-          mt: "auto",
-          backgroundColor: "#fff",
-        }}
+      <List sx={{ overflowX: "hidden" }}>
+        <ListItemButton
+          onClick={handleLogout}
+          sx={{
+            mx: 1,
+            mb: 1,
+            gap: 2,
+            borderRadius: 2,
+            maxWidth: "calc(100% - 16px)",
+            color: "#d32f2f",
+            "&:hover": { backgroundColor: "#fdecea" },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 0 }}>
+            <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
+          </ListItemIcon>
+
+          <ListItemText
+            primary="Keluar"
+            primaryTypographyProps={{
+              fontSize: 14,
+              fontWeight: "bold",
+              noWrap: true,
+            }}
+          />
+        </ListItemButton>
+      </List>
+    </Box>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <Drawer
+          variant="temporary"
+          open={open}
+          onClose={onClose}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            "& .MuiDrawer-paper": drawerPaperStyle,
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      ) : (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            overflowX: "hidden",
+            "& .MuiDrawer-paper": drawerPaperStyle,
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
+
+      <Dialog
+        open={dialogLogout}
+        onClose={() => setDialogLogout(false)}
+        maxWidth="xs"
+        fullWidth
       >
-        <List>
-          <ListItemButton
-            onClick={() => {
-              if (window.confirm("Yakin ingin keluar?")) {
-                localStorage.removeItem("user");
-                navigate("/");
-              }
-            }}
-            sx={{
-              mx: 1,
-              mb: 1,
-              gap: 2,
-              borderRadius: 2,
-              color: "#d32f2f",
-              "&:hover": { backgroundColor: "#fdecea" },
-            }}
+        <DialogTitle fontWeight="bold">Konfirmasi Keluar</DialogTitle>
+
+        <DialogContent>
+          <Typography fontSize={14} color="text.secondary">
+            Apakah kamu yakin ingin keluar dari aplikasi?
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDialogLogout(false)}
+            fullWidth
           >
-            <ListItemIcon sx={{ minWidth: 0 }}>
-              <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
-            </ListItemIcon>
-            <ListItemText
-              primary="Keluar"
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: "bold",
-              }}
-            />
-          </ListItemButton>
-        </List>
-      </Box>
-    </Drawer>
+            Batal
+          </Button>
+
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleKonfirmasiLogout}
+            fullWidth
+          >
+            Keluar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

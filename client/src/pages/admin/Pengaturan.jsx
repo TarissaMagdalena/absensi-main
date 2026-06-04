@@ -129,13 +129,21 @@ export default function Pengaturan() {
   return (
     <DashboardLayoutAdmin>
       <Box>
-        <Paper sx={{ maxWidth: 520, p: 4, borderRadius: 3, mx: "auto", mt: 4 }}>
+        <Paper
+          sx={{
+            maxWidth: 520,
+            p: { xs: 2, md: 4 },
+            borderRadius: 3,
+            mx: "auto",
+            mt: { xs: 1, md: 4 },
+          }}
+        >
           {/* Judul */}
           <Typography variant="h6" fontWeight="bold" mb={1}>
             Ubah Kata Sandi
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
-            Gunakan kata sandi yang panjang dan acak agar akun tetap aman.
+            Gunakan kata sandi yang kuat untuk menjaga keamanan akun.
           </Typography>
 
           {/* ── Field: Kata Sandi saat ini ──────────────────────────────────── */}

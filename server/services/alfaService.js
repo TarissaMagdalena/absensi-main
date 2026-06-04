@@ -1,14 +1,14 @@
-// server/services/alphaService.js
+// server/services/AlfaService.js
 import { db } from "../db.js";
 
 /**
- * Proses Alpha untuk satu tanggal tertentu.
+ * Proses Alfa untuk satu tanggal tertentu.
  *
  * @param {string} tanggal        - format YYYY-MM-DD
  * @param {boolean} hariIni       - true = cek jam masuk shift + toleransi sebelum insert
  * @param {number} toleransiMenit - menit toleransi setelah jam masuk (default 30)
  */
-export async function processAlpha(
+export async function processAlfa(
   tanggal,
   hariIni = false,
   toleransiMenit = 30,
@@ -78,16 +78,16 @@ export async function processAlpha(
         }
       }
 
-      // Alpha jika sekarang sudah lewat jam pulang + 3 jam
-      const batasAlpha = new Date(jamPulang);
-      batasAlpha.setHours(batasAlpha.getHours() + 3);
-      return sekarang >= batasAlpha;
+      // Alfa jika sekarang sudah lewat jam pulang + 3 jam
+      const batasAlfa = new Date(jamPulang);
+      batasAlfa.setHours(batasAlfa.getHours() + 3);
+      return sekarang >= batasAlfa;
     }
   });
 
   if (toInsert.length === 0) return { inserted: 0, detail: [] };
 
-  // ── 4. Insert Alpha ───────────────────────────────────────────────────────
+  // ── 4. Insert Alfa ───────────────────────────────────────────────────────
   const conn = await db.getConnection();
   await conn.beginTransaction();
 
@@ -104,7 +104,7 @@ export async function processAlpha(
       await conn.query(
         `INSERT IGNORE INTO absensi
          (pegawai_id, tanggal, status, keterangan, shift_kode, is_from_jadwal)
-         VALUES (?, ?, 'Alpha', 'Tidak hadir tanpa keterangan', ?, 0)`,
+         VALUES (?, ?, 'Alfa', 'Tidak hadir tanpa keterangan', ?, 0)`,
         [k.pegawai_id, tanggal, k.shift_kode],
       );
       inserted.push({
@@ -116,7 +116,7 @@ export async function processAlpha(
 
     await conn.commit();
     console.log(
-      `[Alpha] ${tanggal} → ${inserted.length} Alpha diinsert:`,
+      `[Alfa] ${tanggal} → ${inserted.length} Alfa diinsert:`,
       inserted.map((i) => i.nama).join(", ") || "-",
     );
     return { inserted: inserted.length, detail: inserted };

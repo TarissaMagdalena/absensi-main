@@ -17,6 +17,8 @@ import {
   Alert,
   Divider,
   Skeleton,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -36,6 +38,9 @@ const SHIFT_COLORS = {
 const SHIFT_TIDAK_ABSEN = ["L", "CT"];
 
 export default function Dashboard() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // < 600px
+
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem("user")) || {};
@@ -71,7 +76,6 @@ export default function Dashboard() {
   const todayStr = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Jakarta",
   });
-
   const hariIni = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -79,37 +83,30 @@ export default function Dashboard() {
     year: "numeric",
     timeZone: "Asia/Jakarta",
   });
-
   const pegawaiId = user?.pegawai_id;
 
-  // ================= apiFetch JADWAL =================
+  // ── Fetch jadwal ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     setLoadingJadwal(true);
-
     apiFetch(
       `http://localhost:5000/api/jadwal/pegawai/${pegawaiId}?tanggal=${todayStr}`,
     )
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.json();
-      })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => setJadwalHariIni(data))
       .catch(() => setJadwalHariIni(null))
       .finally(() => setLoadingJadwal(false));
   }, [pegawaiId, todayStr]);
 
-  // ================= apiFetch ABSENSI HARI INI =================
+  // ── Fetch absensi hari ini ──────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
-
     apiFetch(
       `http://localhost:5000/api/absensi/hari-ini?pegawai_id=${pegawaiId}`,
     )
       .then((res) => res.json())
       .then((data) => {
         if (!data) return;
-
         if (data.jam_masuk) {
           setAbsenMasuk(data.jam_masuk);
           setStatusMasuk(data.status);
@@ -122,17 +119,13 @@ export default function Dashboard() {
                 label: "Absen Masuk",
                 jam: data.jam_masuk,
                 status: data.status,
-                keterangan:
-                  data.keterangan ||
-                  (data.status_area === "DALAM"
-                    ? "Dalam Area Kantor"
-                    : "Di Luar Area Kantor"),
+                keterangan: data.keterangan,
+                area: data.status_area,
               },
               ...prev,
             ];
           });
         }
-
         if (data.jam_pulang) {
           setAbsenPulang(data.jam_pulang);
           setStatusPulang("Selesai");
@@ -153,10 +146,10 @@ export default function Dashboard() {
           });
         }
       })
-      .catch((err) => console.error("Gagal apiFetch absen hari ini:", err));
+      .catch((err) => console.error("Gagal fetch absen hari ini:", err));
   }, [pegawaiId]);
 
-  // ================= ABSEN MASUK =================
+  // ── Absen masuk ────────────────────────────────────────────────────────────
   const handleSubmitAbsensi = async () => {
     if (loadingMasuk) return;
     if (!lokasi) {
@@ -181,7 +174,6 @@ export default function Dashboard() {
         }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setNotif({ open: true, message: data.message, severity: "warning" });
         setShowModalMasuk(false);
@@ -196,7 +188,6 @@ export default function Dashboard() {
           timeZone: "Asia/Jakarta",
         });
       const statusBaru = data.status || "Hadir";
-
       setAbsenMasuk(jamMasuk);
       setStatusMasuk(statusBaru);
       setAktivitas((prev) => [
@@ -206,13 +197,11 @@ export default function Dashboard() {
           label: "Absen Masuk",
           jam: jamMasuk,
           status: statusBaru,
-          keterangan:
-            data.keterangan ||
-            (data.dalam_area ? "Dalam Area Kantor" : "Di Luar Area Kantor"),
+          keterangan: data.keterangan,
+          area: data.dalam_area ? "DALAM" : "LUAR",
         },
         ...prev,
       ]);
-
       setShowModalMasuk(false);
       setNotif({
         open: true,
@@ -231,12 +220,11 @@ export default function Dashboard() {
     }
   };
 
-  // ── Helper keterangan pulang ──
+  // ── Keterangan pulang ──────────────────────────────────────────────────────
   const getKeteranganPulang = useCallback(
     (jamPulangAktual) => {
       if (!jamPulangAktual || !jadwalHariIni?.jam_pulang)
         return "Jam pulang tercatat";
-
       const [hA, mA] = jamPulangAktual.slice(0, 5).split(":").map(Number);
       const menitAktual = hA * 60 + mA;
       const [hS, mS] = jadwalHariIni.jam_pulang
@@ -247,15 +235,12 @@ export default function Dashboard() {
       const [hMasuk] = (jadwalHariIni.jam_masuk || "00:00")
         .split(":")
         .map(Number);
-      const menitMasuk = hMasuk * 60;
-      const isShiftMalam = menitShift < menitMasuk;
-
+      const isShiftMalam = menitShift < hMasuk * 60;
       let menitAktualNorm = menitAktual;
-      if (isShiftMalam && menitAktual < menitMasuk)
+      if (isShiftMalam && menitAktual < hMasuk * 60)
         menitAktualNorm = menitAktual + 1440;
-      const menitShiftNorm = isShiftMalam ? menitShift + 1440 : menitShift;
-      const selisih = menitAktualNorm - menitShiftNorm;
-
+      const selisih =
+        menitAktualNorm - (isShiftMalam ? menitShift + 1440 : menitShift);
       if (selisih < -30) {
         const m = Math.abs(selisih);
         return m >= 60
@@ -270,7 +255,7 @@ export default function Dashboard() {
     [jadwalHariIni],
   );
 
-  // ================= ABSEN PULANG =================
+  // ── Absen pulang ───────────────────────────────────────────────────────────
   const handleSubmitPulang = async () => {
     if (loadingPulang) return;
     if (!lokasi) {
@@ -295,7 +280,6 @@ export default function Dashboard() {
         }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setNotif({ open: true, message: data.message, severity: "warning" });
         setShowModalPulang(false);
@@ -311,7 +295,6 @@ export default function Dashboard() {
         });
       const keteranganPulang =
         data.keterangan_pulang || getKeteranganPulang(jamPulang);
-
       setAbsenPulang(jamPulang);
       setStatusPulang("Selesai");
       setAktivitas((prev) => [
@@ -326,7 +309,6 @@ export default function Dashboard() {
         },
         ...prev,
       ]);
-
       setShowModalPulang(false);
       setNotif({
         open: true,
@@ -344,7 +326,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Kartu jadwal shift ──
+  // ── Kartu jadwal ───────────────────────────────────────────────────────────
   const renderKartuJadwal = () => {
     if (loadingJadwal) {
       return (
@@ -361,15 +343,14 @@ export default function Dashboard() {
 
     const kode = jadwalHariIni?.shift_kode;
     if (!jadwalHariIni || !kode || SHIFT_TIDAK_ABSEN.includes(kode)) {
-      const isLibur = kode === "L";
-      const isCuti = kode === "CT";
-
+      const isLibur = kode === "L",
+        isCuti = kode === "CT";
       return (
         <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #e0e0e0" }}>
           <Box display="flex" alignItems="center" gap={1} mb={1}>
             <EventNoteIcon sx={{ fontSize: 18, color: "text.secondary" }} />
             <Typography fontSize={13} fontWeight="bold" color="text.secondary">
-              Jadwal Shift Hari Ini
+              Jadwal Kerja Hari Ini
             </Typography>
           </Box>
           <Box
@@ -420,11 +401,10 @@ export default function Dashboard() {
     const jamMasukDate = new Date();
     jamMasukDate.setHours(hh, mm, 0, 0);
     const selisihMenit = Math.round((jamMasukDate - now) / 60000);
-
     const waktuInfo = absenMasuk
       ? "Sudah absen masuk"
       : selisihMenit > 0
-        ? `Mulai dalam ${selisihMenit} menit`
+        ? `Mulai dalam ${selisihMenit} menit` // disingkat agar muat di mobile
         : selisihMenit > -30
           ? "Sedang berlangsung"
           : "Sudah melewati jam masuk";
@@ -434,20 +414,23 @@ export default function Dashboard() {
         <Box display="flex" alignItems="center" gap={1} mb={1.5}>
           <EventNoteIcon sx={{ fontSize: 18, color: c.color }} />
           <Typography fontSize={13} fontWeight="bold" color={c.color}>
-            Jadwal Shift Hari Ini
+            Jadwal Kerja Hari Ini
           </Typography>
         </Box>
+
         <Box
           sx={{
-            p: 2,
+            p: 1.5,
             borderRadius: 2,
             backgroundColor: c.bg,
             border: `1px solid ${c.border}`,
             display: "flex",
-            alignItems: "center",
-            gap: 2,
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 1.5,
           }}
         >
+          {/* Badge kode shift */}
           <Box
             sx={{
               px: 1.5,
@@ -459,15 +442,18 @@ export default function Dashboard() {
               fontSize: 16,
               minWidth: 44,
               textAlign: "center",
+              flexShrink: 0,
             }}
           >
             {kode}
           </Box>
+
+          {/* Nama shift + jam — flex:1 agar mendorong chip ke kanan */}
           <Box flex={1}>
             <Typography fontWeight="bold" fontSize={14} color={c.color}>
               {jadwalHariIni.nama || kode}
             </Typography>
-            <Box display="flex" alignItems="center" gap={0.5} mt={0.3}>
+            <Box display="flex" alignItems="center" gap={0.5}>
               <AccessTimeIcon
                 sx={{ fontSize: 13, color: c.color, opacity: 0.8 }}
               />
@@ -476,6 +462,10 @@ export default function Dashboard() {
               </Typography>
             </Box>
           </Box>
+
+          {/* Chip status:
+              - Desktop (sm+): sejajar kanan dalam satu baris
+              - Mobile (xs)  : turun ke bawah otomatis karena flexDirection column */}
           <Chip
             label={waktuInfo}
             size="small"
@@ -483,7 +473,10 @@ export default function Dashboard() {
               backgroundColor: c.color,
               color: "#fff",
               fontWeight: "bold",
-              fontSize: 10,
+              fontSize: 11,
+              flexShrink: 0,
+              height: "auto",
+              "& .MuiChip-label": { whiteSpace: "normal", py: 0.5 },
             }}
           />
         </Box>
@@ -502,29 +495,30 @@ export default function Dashboard() {
         </Typography>
 
         <Box display="flex" flexDirection="column" gap={3}>
+          {/* Kartu jadwal */}
           {renderKartuJadwal()}
 
-          {/* MAP */}
+          {/* Peta */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
             <MapAbsensi onLocation={setLokasi} />
           </Paper>
 
-          {/* TOMBOL ABSEN */}
+          {/* Tombol absen masuk & pulang */}
           <Box display="flex" gap={2}>
-            {/* MASUK */}
+            {/* ── ABSEN MASUK ── */}
             <Paper
               onClick={() => {
                 if (!shiftButuhAbsen) {
                   const kode = jadwalHariIni?.shift_kode;
                   setNotif({
                     open: true,
+                    severity: "info",
                     message:
                       kode === "CT"
                         ? "Kamu sedang cuti hari ini, absen tidak diperlukan"
                         : kode === "L"
                           ? "Hari ini kamu terjadwal libur"
                           : "Tidak ada jadwal shift hari ini",
-                    severity: "info",
                   });
                   return;
                 }
@@ -540,7 +534,7 @@ export default function Dashboard() {
               }}
               sx={{
                 flex: 1,
-                p: 3,
+                p: { xs: 2, md: 3 },
                 borderRadius: 3,
                 backgroundColor: "#22c55e",
                 color: "#fff",
@@ -550,21 +544,37 @@ export default function Dashboard() {
                     : "not-allowed",
                 opacity:
                   statusMasuk === "Belum Absen" && shiftButuhAbsen ? 1 : 0.6,
+                // Pastikan konten tidak overflow di mobile
+                minWidth: 0,
+                overflow: "hidden",
               }}
             >
-              <Typography>Absen Masuk</Typography>
-              <Typography variant="h5" fontWeight="bold">
+              <Typography fontSize={{ xs: 11, md: 14 }}>Absen Masuk</Typography>
+              <Typography
+                fontWeight="bold"
+                fontSize={{ xs: 14, md: 24 }}
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {absenMasuk || "Klik untuk Absen"}
               </Typography>
-              <Typography>{statusMasuk}</Typography>
+              <Typography fontSize={{ xs: 10, md: 14 }}>
+                {statusMasuk}
+              </Typography>
               {jadwalHariIni?.jam_masuk && shiftButuhAbsen && !absenMasuk && (
-                <Typography fontSize={11} sx={{ opacity: 0.85, mt: 0.5 }}>
-                  🕐 Jadwal masuk: {jadwalHariIni.jam_masuk.slice(0, 5)} WIB
+                <Typography
+                  fontSize={{ xs: 9, md: 11 }}
+                  sx={{ opacity: 0.85, mt: 0.5 }}
+                >
+                  🕐 {jadwalHariIni.jam_masuk.slice(0, 5)} WIB
                 </Typography>
               )}
             </Paper>
 
-            {/* PULANG */}
+            {/* ── ABSEN PULANG ── */}
             <Paper
               onClick={() => {
                 if (!bolehAbsenPulang || absenPulang) return;
@@ -572,34 +582,49 @@ export default function Dashboard() {
               }}
               sx={{
                 flex: 1,
-                p: 3,
+                p: { xs: 2, md: 3 },
                 borderRadius: 3,
                 backgroundColor: "#ef4444",
                 color: "#fff",
                 opacity: bolehAbsenPulang && !absenPulang ? 1 : 0.5,
                 cursor:
                   bolehAbsenPulang && !absenPulang ? "pointer" : "not-allowed",
+                minWidth: 0,
+                overflow: "hidden",
               }}
             >
-              <Typography>Absen Pulang</Typography>
-              <Typography variant="h5" fontWeight="bold">
+              <Typography fontSize={{ xs: 11, md: 14 }}>
+                Absen Pulang
+              </Typography>
+              <Typography
+                fontWeight="bold"
+                fontSize={{ xs: 14, md: 24 }}
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {bolehAbsenPulang ? absenPulang || "Klik untuk Absen" : "-"}
               </Typography>
-              <Typography>
+              <Typography fontSize={{ xs: 10, md: 14 }}>
                 {bolehAbsenPulang ? statusPulang : "Tidak diperlukan"}
               </Typography>
               {jadwalHariIni?.jam_pulang &&
                 shiftButuhAbsen &&
                 !absenPulang &&
                 bolehAbsenPulang && (
-                  <Typography fontSize={11} sx={{ opacity: 0.85, mt: 0.5 }}>
-                    🕐 Jadwal pulang: {jadwalHariIni.jam_pulang.slice(0, 5)} WIB
+                  <Typography
+                    fontSize={{ xs: 9, md: 11 }}
+                    sx={{ opacity: 0.85, mt: 0.5 }}
+                  >
+                    🕐 {jadwalHariIni.jam_pulang.slice(0, 5)} WIB
                   </Typography>
                 )}
             </Paper>
           </Box>
 
-          {/* AKTIVITAS */}
+          {/* Aktivitas hari ini */}
           <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Typography fontWeight="bold" mb={1}>
               Aktivitas Hari Ini
@@ -630,22 +655,26 @@ export default function Dashboard() {
                       alignItems="center"
                       gap={2}
                       sx={{
-                        p: 2,
+                        p: { xs: 1.5, md: 2 },
                         borderRadius: 2,
                         backgroundColor:
                           item.tipe === "masuk" ? "#e8f5e9" : "#fce4ec",
                       }}
                     >
                       {item.tipe === "masuk" ? (
-                        <LoginIcon sx={{ color: "#2e7d32" }} />
+                        <LoginIcon sx={{ color: "#2e7d32", flexShrink: 0 }} />
                       ) : (
-                        <LogoutIcon sx={{ color: "#c62828" }} />
+                        <LogoutIcon sx={{ color: "#c62828", flexShrink: 0 }} />
                       )}
-                      <Box flex={1}>
+                      <Box flex={1} minWidth={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.label}
                         </Typography>
-                        <Typography fontSize={12} color="text.secondary">
+                        <Typography
+                          fontSize={12}
+                          color="text.secondary"
+                          sx={{ wordBreak: "break-word" }}
+                        >
                           {item.keterangan}
                         </Typography>
                         {item.area && (
@@ -656,7 +685,7 @@ export default function Dashboard() {
                           </Typography>
                         )}
                       </Box>
-                      <Box textAlign="right">
+                      <Box textAlign="right" flexShrink={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.jam}
                         </Typography>
@@ -683,11 +712,27 @@ export default function Dashboard() {
           </Paper>
         </Box>
 
-        {/* MODAL ABSEN MASUK */}
+        {/* ── Modal Absen Masuk ── */}
         <Dialog
           open={showModalMasuk}
           onClose={() => !loadingMasuk && setShowModalMasuk(false)}
-          PaperProps={{ sx: { borderRadius: 3, minWidth: 320 } }}
+          fullScreen={false}
+          PaperProps={{
+            sx: {
+              borderRadius: isMobile ? "20px 20px 0 0" : 3,
+              minWidth: isMobile ? "100%" : 320,
+              maxWidth: isMobile ? "100%" : 440,
+              width: isMobile ? "100%" : undefined,
+              margin: 0,
+              position: isMobile ? "fixed" : "relative",
+              bottom: isMobile ? 0 : "auto",
+            },
+          }}
+          sx={{
+            "& .MuiDialog-container": {
+              alignItems: isMobile ? "flex-end" : "center",
+            },
+          }}
         >
           <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
             📋 Konfirmasi Absen Masuk
@@ -720,7 +765,7 @@ export default function Dashboard() {
                     fontWeight="bold"
                     color={SHIFT_COLORS[jadwalHariIni.shift_kode]?.color}
                   >
-                    Shift {jadwalHariIni.shift_kode} — {jadwalHariIni.nama}
+                    Jadwal {jadwalHariIni.shift_kode} — {jadwalHariIni.nama}
                   </Typography>
                   <Typography fontSize={11} color="text.secondary">
                     {jadwalHariIni.jam_masuk?.slice(0, 5)} –{" "}
@@ -768,11 +813,27 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* MODAL ABSEN PULANG */}
+        {/* ── Modal Absen Pulang ── */}
         <Dialog
           open={showModalPulang}
           onClose={() => !loadingPulang && setShowModalPulang(false)}
-          PaperProps={{ sx: { borderRadius: 3, minWidth: 320 } }}
+          fullScreen={false}
+          PaperProps={{
+            sx: {
+              borderRadius: isMobile ? "20px 20px 0 0" : 3,
+              minWidth: isMobile ? "100%" : 320,
+              maxWidth: isMobile ? "100%" : 440,
+              width: isMobile ? "100%" : undefined,
+              margin: 0,
+              position: isMobile ? "fixed" : "relative",
+              bottom: isMobile ? 0 : "auto",
+            },
+          }}
+          sx={{
+            "& .MuiDialog-container": {
+              alignItems: isMobile ? "flex-end" : "center",
+            },
+          }}
         >
           <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
             🏠 Konfirmasi Absen Pulang
@@ -833,7 +894,7 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* NOTIF */}
+        {/* Notifikasi */}
         <Snackbar
           open={notif.open}
           autoHideDuration={3000}

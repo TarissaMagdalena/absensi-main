@@ -12,7 +12,7 @@ import laporanRoutes from "./routes/laporanRoutes.js";
 import cutiRoutes from "./routes/cutiRoutes.js";
 
 import { getWIBTime } from "./utils/getTime.js";
-import { processAlpha } from "./services/alphaService.js";
+import { processAlfa } from "./services/AlfaService.js";
 
 const app = express();
 
@@ -51,7 +51,7 @@ function toDateStr(date) {
   return date.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
 
-// ================= CRON 1: Setiap jam (cek Alpha shift yang baru selesai) =====
+// ================= CRON 1: Setiap jam (cek Alfa shift yang baru selesai) =====
 // Menangkap:
 //   - Shift pagi/siang hari ini yang sudah lewat jam masuk + 3 jam
 //   - Shift malam kemarin yang baru selesai pagi ini
@@ -65,19 +65,19 @@ cron.schedule(
     const kemarinStr = toDateStr(kemarin);
 
     console.log(
-      `[CRON Jam] ${sekarang.toLocaleTimeString("id-ID")} — cek Alpha...`,
+      `[CRON Jam] ${sekarang.toLocaleTimeString("id-ID")} — cek Alfa...`,
     );
 
     try {
       // Hari ini: toleransi 3 jam (180 menit) setelah jam masuk
-      const r1 = await processAlpha(hariIniStr, true, 180);
+      const r1 = await processAlfa(hariIniStr, true, 180);
       if (r1.inserted > 0)
-        console.log(`[CRON Jam] ✅ Hari ini: ${r1.inserted} Alpha`);
+        console.log(`[CRON Jam] ✅ Hari ini: ${r1.inserted} Alfa`);
 
       // Kemarin: untuk shift malam yang baru selesai pagi ini
-      const r2 = await processAlpha(kemarinStr, false);
+      const r2 = await processAlfa(kemarinStr, false);
       if (r2.inserted > 0)
-        console.log(`[CRON Jam] ✅ Kemarin: ${r2.inserted} Alpha`);
+        console.log(`[CRON Jam] ✅ Kemarin: ${r2.inserted} Alfa`);
     } catch (err) {
       console.error("[CRON Jam] ❌ Error:", err.message);
     }
@@ -86,7 +86,7 @@ cron.schedule(
 );
 
 // ================= CRON 2: Tengah malam (cleanup final kemarin) ===============
-// Pastikan semua yang Alpha kemarin sudah tercatat
+// Pastikan semua yang Alfa kemarin sudah tercatat
 // (backup dari cron setiap jam, untuk yang terlewat)
 cron.schedule(
   "0 0 * * *",
@@ -95,18 +95,18 @@ cron.schedule(
     kemarin.setDate(kemarin.getDate() - 1);
     const kemarinStr = toDateStr(kemarin);
 
-    console.log(`[CRON Tengah Malam] Cleanup Alpha ${kemarinStr}...`);
+    console.log(`[CRON Tengah Malam] Cleanup Alfa ${kemarinStr}...`);
     try {
-      // hariIni = false → semua kandidat kemarin langsung Alpha
-      const result = await processAlpha(kemarinStr, false);
+      // hariIni = false → semua kandidat kemarin langsung Alfa
+      const result = await processAlfa(kemarinStr, false);
       if (result.inserted > 0) {
         console.log(
-          `[CRON Tengah Malam] ✅ ${result.inserted} Alpha diinsert:`,
+          `[CRON Tengah Malam] ✅ ${result.inserted} Alfa diinsert:`,
           result.detail.map((d) => d.nama).join(", "),
         );
       } else {
         console.log(
-          `[CRON Tengah Malam] Tidak ada Alpha baru untuk ${kemarinStr}`,
+          `[CRON Tengah Malam] Tidak ada Alfa baru untuk ${kemarinStr}`,
         );
       }
     } catch (err) {
@@ -116,7 +116,7 @@ cron.schedule(
   { timezone: "Asia/Jakarta" },
 );
 
-console.log("✅ Cron job Alpha terdaftar (setiap jam + tengah malam WIB)");
+console.log("✅ Cron job Alfa terdaftar (setiap jam + tengah malam WIB)");
 
 // ================= START SERVER =================
 app.listen(5000, () => console.log("Server running on port 5000"));

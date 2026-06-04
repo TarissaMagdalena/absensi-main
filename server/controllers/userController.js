@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 export const getUsers = async (req, res) => {
   try {
     const [data] = await db.query(
-      "SELECT id, nama, email, role FROM users ORDER BY id DESC",
+      "SELECT id, nama, username, role FROM users ORDER BY id DESC",
     );
     res.json(data);
   } catch (err) {
@@ -16,18 +16,18 @@ export const getUsers = async (req, res) => {
 // CREATE USER
 export const createUser = async (req, res) => {
   try {
-    const { nama, email, password, role } = req.body;
+    const { nama, username, password, role } = req.body;
 
-    if (!nama || !email || !password) {
+    if (!nama || !username || !password) {
       return res.status(400).json({ message: "Semua field wajib diisi" });
     }
 
-    // Cek email duplikat
-    const [cek] = await db.query("SELECT * FROM users WHERE email = ?", [
-      email,
+    // Cek username duplikat
+    const [cek] = await db.query("SELECT * FROM users WHERE username = ?", [
+      username,
     ]);
     if (cek.length > 0) {
-      return res.status(400).json({ message: "Email sudah digunakan" });
+      return res.status(400).json({ message: "username sudah digunakan" });
     }
 
     // Hash password
@@ -35,8 +35,8 @@ export const createUser = async (req, res) => {
 
     // Insert ke users
     const [result] = await db.query(
-      "INSERT INTO users (nama, email, password, role) VALUES (?, ?, ?, ?)",
-      [nama, email, hashed, role || "pegawai"],
+      "INSERT INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)",
+      [nama, username, hashed, role || "pegawai"],
     );
 
     // 🔥 Otomatis buat entri kosong di tabel pegawai kalau role pegawai
@@ -55,31 +55,31 @@ export const createUser = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
-    const { nama, email, role, password } = req.body;
+    const { nama, username, role, password } = req.body;
     const { id } = req.params;
 
-    if (!nama || !email) {
-      return res.status(400).json({ message: "Nama dan email wajib diisi" });
+    if (!nama || !username) {
+      return res.status(400).json({ message: "Nama dan username wajib diisi" });
     }
 
     const [cek] = await db.query(
-      "SELECT id FROM users WHERE email = ? AND id != ?",
-      [email, id],
+      "SELECT id FROM users WHERE username = ? AND id != ?",
+      [username, id],
     );
     if (cek.length > 0) {
-      return res.status(400).json({ message: "Email sudah digunakan" });
+      return res.status(400).json({ message: "username sudah digunakan" });
     }
 
     if (password) {
       const hashed = await bcrypt.hash(password, 10);
       await db.query(
-        "UPDATE users SET nama = ?, email = ?, role = ?, password = ? WHERE id = ?",
-        [nama, email, role, hashed, id],
+        "UPDATE users SET nama = ?, username = ?, role = ?, password = ? WHERE id = ?",
+        [nama, username, role, hashed, id],
       );
     } else {
       await db.query(
-        "UPDATE users SET nama = ?, email = ?, role = ? WHERE id = ?",
-        [nama, email, role, id],
+        "UPDATE users SET nama = ?, username = ?, role = ? WHERE id = ?",
+        [nama, username, role, id],
       );
     }
 

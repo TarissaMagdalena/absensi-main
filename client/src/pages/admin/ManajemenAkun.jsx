@@ -23,26 +23,30 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  Stack,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
-const FORM_INIT = { nama: "", email: "", password: "", role: "pegawai" };
+const FORM_INIT = { nama: "", username: "", password: "", role: "pegawai" };
 const NOTIF_INIT = { open: false, message: "", severity: "success" };
 
 export default function ManajemenAkun() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
+
   const [akun, setAkun] = useState([]);
   const [form, setForm] = useState(FORM_INIT);
   const [notif, setNotif] = useState(NOTIF_INIT);
-
-  // ── State edit ──
   const [dialogEdit, setDialogEdit] = useState(false);
   const [editData, setEditData] = useState(null);
   const [gantiPassword, setGantiPassword] = useState(false);
-  const [deleteDialog, setDeleteDialog] = useState({
-    open: false,
-    item: null,
-  });
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
 
   const closeNotif = () => setNotif((n) => ({ ...n, open: false }));
   const showNotif = (message, severity = "success") =>
@@ -62,9 +66,8 @@ export default function ManajemenAkun() {
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  // ── Tambah akun ──
   const handleSubmit = async () => {
-    if (!form.nama || !form.email || !form.password) {
+    if (!form.nama || !form.username || !form.password) {
       showNotif("Lengkapi semua field!", "warning");
       return;
     }
@@ -87,12 +90,11 @@ export default function ManajemenAkun() {
     }
   };
 
-  // ── Buka dialog edit ──
   const handleOpenEdit = (a) => {
     setEditData({
       id: a.id,
       nama: a.nama,
-      email: a.email,
+      username: a.username,
       role: a.role,
       password: "",
     });
@@ -100,10 +102,9 @@ export default function ManajemenAkun() {
     setDialogEdit(true);
   };
 
-  // ── Simpan edit ──
   const handleSimpanEdit = async () => {
-    if (!editData.nama || !editData.email) {
-      showNotif("Nama dan email wajib diisi", "warning");
+    if (!editData.nama || !editData.username) {
+      showNotif("Nama dan username wajib diisi", "warning");
       return;
     }
     if (gantiPassword && !editData.password) {
@@ -113,13 +114,10 @@ export default function ManajemenAkun() {
     try {
       const body = {
         nama: editData.nama,
-        email: editData.email,
+        username: editData.username,
         role: editData.role,
       };
-      if (gantiPassword && editData.password) {
-        body.password = editData.password;
-      }
-
+      if (gantiPassword && editData.password) body.password = editData.password;
       const res = await apiFetch(
         `http://localhost:5000/api/users/${editData.id}`,
         {
@@ -141,8 +139,6 @@ export default function ManajemenAkun() {
     }
   };
 
-  // ── Hapus akun ──
-
   const handleDelete = async () => {
     try {
       const res = await apiFetch(
@@ -151,25 +147,36 @@ export default function ManajemenAkun() {
           method: "DELETE",
         },
       );
-
       const data = await res.json();
-
       if (!res.ok) {
         showNotif(data.message, "error");
         return;
       }
-
       showNotif("Akun berhasil dihapus");
-
-      setDeleteDialog({
-        open: false,
-        item: null,
-      });
-
+      setDeleteDialog({ open: false, item: null });
       loadAkun();
     } catch {
       showNotif("Gagal menghapus akun", "error");
     }
+  };
+
+  // 🔥 Bottom sheet props untuk mobile
+  const bottomSheetProps = {
+    PaperProps: {
+      sx: {
+        borderRadius: isSmall ? "20px 20px 0 0" : 3,
+        minWidth: isSmall ? "100%" : undefined,
+        width: isSmall ? "100%" : undefined,
+        margin: 0,
+        position: isSmall ? "fixed" : "relative",
+        bottom: isSmall ? 0 : "auto",
+      },
+    },
+    sx: {
+      "& .MuiDialog-container": {
+        alignItems: isSmall ? "flex-end" : "center",
+      },
+    },
   };
 
   return (
@@ -178,38 +185,45 @@ export default function ManajemenAkun() {
         Manajemen Akun
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={3}>
-        Kelola akun login pegawai — tambah atau hapus akses sistem
+        Kelola akun login pegawai dan hak akses sistem
       </Typography>
 
       {/* FORM TAMBAH */}
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, borderRadius: 3 }}>
         <Typography fontWeight="bold" mb={2}>
           Tambah Akun Pegawai
         </Typography>
         <Box
           display="flex"
-          alignItems="center"
+          flexDirection={{ xs: "column", md: "row" }}
+          alignItems={{ xs: "stretch", md: "center" }}
           justifyContent="space-between"
-          flexWrap="wrap"
           gap={2}
         >
-          <Box display="flex" gap={2} flexWrap="wrap">
+          {/* 🔥 Input stack ke bawah di mobile */}
+          <Box
+            display="flex"
+            flexDirection={{ xs: "column", sm: "row" }}
+            gap={2}
+            flexWrap="wrap"
+            flex={1}
+          >
             <TextField
               size="small"
               label="Nama Lengkap"
               name="nama"
               value={form.nama}
               onChange={handleChange}
-              sx={{ minWidth: 180 }}
+              sx={{ minWidth: { xs: "100%", sm: 180 } }}
             />
             <TextField
               size="small"
               label="Nama Pengguna"
-              name="email"
-              type="email"
-              value={form.email}
+              name="username"
+              type="username"
+              value={form.username}
               onChange={handleChange}
-              sx={{ minWidth: 200 }}
+              sx={{ minWidth: { xs: "100%", sm: 200 } }}
             />
             <TextField
               size="small"
@@ -218,7 +232,7 @@ export default function ManajemenAkun() {
               type="password"
               value={form.password}
               onChange={handleChange}
-              sx={{ minWidth: 180 }}
+              sx={{ minWidth: { xs: "100%", sm: 180 } }}
             />
             <TextField
               select
@@ -227,7 +241,7 @@ export default function ManajemenAkun() {
               name="role"
               value={form.role}
               onChange={handleChange}
-              sx={{ minWidth: 140 }}
+              sx={{ minWidth: { xs: "100%", sm: 140 } }}
             >
               <MenuItem value="pegawai">Pegawai</MenuItem>
               <MenuItem value="admin">Admin</MenuItem>
@@ -236,85 +250,169 @@ export default function ManajemenAkun() {
           <Button
             variant="contained"
             onClick={handleSubmit}
-            sx={{ height: 40, whiteSpace: "nowrap" }}
+            sx={{
+              height: 40,
+              whiteSpace: "nowrap",
+              width: { xs: "100%", md: "auto" },
+            }}
           >
             Simpan Akun
           </Button>
         </Box>
       </Paper>
 
-      {/* TABEL */}
-      <Paper sx={{ p: 2, borderRadius: 3 }}>
-        <Table>
-          <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
-            <TableRow>
-              <TableCell>No</TableCell>
-              <TableCell>Nama</TableCell>
-              <TableCell>Nama Pengguna</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell align="center">Aksi</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {akun.length > 0 ? (
-              akun.map((a, i) => (
-                <TableRow
-                  key={a.id}
-                  sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
-                >
-                  <TableCell>{i + 1}</TableCell>
-                  <TableCell>{a.nama}</TableCell>
-                  <TableCell>{a.email}</TableCell>
-                  <TableCell>
+      {/* 🔥 CARD (mobile) / TABEL (desktop) */}
+      {isMobile ? (
+        <Box>
+          {akun.length > 0 ? (
+            akun.map((a, i) => (
+              <Card
+                key={a.id}
+                variant="outlined"
+                sx={{ borderRadius: 3, mb: 1.5, "&:hover": { boxShadow: 2 } }}
+              >
+                <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    mb={1}
+                  >
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography
+                        fontSize={11}
+                        sx={{
+                          backgroundColor: "#f0f0f0",
+                          borderRadius: "50%",
+                          width: 22,
+                          height: 22,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: "bold",
+                          color: "#555",
+                        }}
+                      >
+                        {i + 1}
+                      </Typography>
+                      <Typography fontWeight="bold" fontSize={14}>
+                        {a.nama}
+                      </Typography>
+                    </Box>
                     <Chip
                       label={a.role}
                       size="small"
                       color={a.role === "admin" ? "primary" : "default"}
                     />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box display="flex" gap={0.5} justifyContent="center">
-                      <Tooltip title="Edit Akun">
-                        <IconButton
-                          color="primary"
-                          size="small"
-                          onClick={() => handleOpenEdit(a)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Hapus Akun">
-                        <IconButton
-                          color="error"
-                          size="small"
-                          onClick={() =>
-                            setDeleteDialog({
-                              open: true,
-                              item: a,
-                            })
-                          }
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
+                  </Box>
+
+                  <Divider sx={{ mb: 1 }} />
+
+                  <Typography fontSize={12} color="text.secondary" mb={1}>
+                    {a.username}
+                  </Typography>
+
+                  <Box display="flex" justifyContent="flex-end" gap={0.5}>
+                    <Tooltip title="Edit Akun">
+                      <IconButton
+                        color="primary"
+                        size="small"
+                        onClick={() => handleOpenEdit(a)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Hapus Akun">
+                      <IconButton
+                        color="error"
+                        size="small"
+                        onClick={() => setDeleteDialog({ open: true, item: a })}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Paper sx={{ p: 4, borderRadius: 3, textAlign: "center" }}>
+              <Typography color="text.secondary">
+                Tidak ada data akun
+              </Typography>
+            </Paper>
+          )}
+        </Box>
+      ) : (
+        <Paper sx={{ p: 2, borderRadius: 3 }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+              <TableRow>
+                <TableCell>No</TableCell>
+                <TableCell>Nama</TableCell>
+                <TableCell>Nama Pengguna</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell align="center">Aksi</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {akun.length > 0 ? (
+                akun.map((a, i) => (
+                  <TableRow
+                    key={a.id}
+                    sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
+                  >
+                    <TableCell>{i + 1}</TableCell>
+                    <TableCell>{a.nama}</TableCell>
+                    <TableCell>{a.username}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={a.role}
+                        size="small"
+                        color={a.role === "admin" ? "primary" : "default"}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" gap={0.5} justifyContent="center">
+                        <Tooltip title="Edit Akun">
+                          <IconButton
+                            color="primary"
+                            size="small"
+                            onClick={() => handleOpenEdit(a)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Hapus Akun">
+                          <IconButton
+                            color="error"
+                            size="small"
+                            onClick={() =>
+                              setDeleteDialog({ open: true, item: a })
+                            }
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    align="center"
+                    sx={{ py: 4, color: "text.secondary" }}
+                  >
+                    Tidak ada data akun
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  align="center"
-                  sx={{ py: 4, color: "text.secondary" }}
-                >
-                  Tidak ada data akun
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
 
       {/* DIALOG EDIT */}
       <Dialog
@@ -322,10 +420,12 @@ export default function ManajemenAkun() {
         onClose={() => setDialogEdit(false)}
         fullWidth
         maxWidth="sm"
+        fullScreen={false}
+        {...bottomSheetProps}
       >
         <DialogTitle fontWeight="bold">Edit Akun</DialogTitle>
         <Divider />
-        <DialogContent>
+        <DialogContent dividers>
           {editData && (
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
               <TextField
@@ -341,10 +441,10 @@ export default function ManajemenAkun() {
                 fullWidth
                 size="small"
                 label="Nama Pengguna"
-                type="email"
-                value={editData.email}
+                type="username"
+                value={editData.username}
                 onChange={(e) =>
-                  setEditData({ ...editData, email: e.target.value })
+                  setEditData({ ...editData, username: e.target.value })
                 }
               />
               <TextField
@@ -360,10 +460,7 @@ export default function ManajemenAkun() {
                 <MenuItem value="pegawai">Pegawai</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
               </TextField>
-
               <Divider />
-
-              {/* Toggle ganti password */}
               <Box
                 display="flex"
                 alignItems="center"
@@ -380,10 +477,11 @@ export default function ManajemenAkun() {
                     setEditData({ ...editData, password: "" });
                   }}
                 >
-                  {gantiPassword ? "Batal Ganti" : "Ganti Kata Sandi"}
+                  {gantiPassword
+                    ? "Batal Ganti Kata Sandi"
+                    : "Ganti Kata Sandi"}
                 </Button>
               </Box>
-
               {gantiPassword && (
                 <TextField
                   fullWidth
@@ -402,10 +500,18 @@ export default function ManajemenAkun() {
         </DialogContent>
         <Divider />
         <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button onClick={() => setDialogEdit(false)} variant="outlined">
+          <Button
+            onClick={() => setDialogEdit(false)}
+            variant="outlined"
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
             Batal
           </Button>
-          <Button variant="contained" onClick={handleSimpanEdit}>
+          <Button
+            variant="contained"
+            onClick={handleSimpanEdit}
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
             Simpan
           </Button>
         </DialogActions>
@@ -414,69 +520,37 @@ export default function ManajemenAkun() {
       {/* DIALOG HAPUS */}
       <Dialog
         open={deleteDialog.open}
-        onClose={() =>
-          setDeleteDialog({
-            open: false,
-            item: null,
-          })
-        }
+        onClose={() => setDeleteDialog({ open: false, item: null })}
         maxWidth="xs"
         fullWidth
+        fullScreen={false}
+        {...bottomSheetProps}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 700,
-            fontSize: 20,
-            pb: 1,
-          }}
-        >
-          Hapus Akun
-        </DialogTitle>
-
-        <DialogContent>
-          <Typography sx={{ fontSize: 16, lineHeight: 1.7 }}>
+        <DialogTitle fontWeight="bold">Hapus Akun</DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography>
             Hapus akun <strong>{deleteDialog.item?.nama}</strong>?
           </Typography>
-
-          <Typography
-            sx={{
-              mt: 2,
-              color: "#e53935",
-              fontSize: 14,
-            }}
-          >
+          <Typography variant="body2" color="error" mt={1}>
             Tindakan ini tidak bisa dibatalkan.
           </Typography>
         </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button
-            onClick={() =>
-              setDeleteDialog({
-                open: false,
-                item: null,
-              })
-            }
-            sx={{
-              color: "#1976d2",
-              fontWeight: 500,
-            }}
+            onClick={() => setDeleteDialog({ open: false, item: null })}
+            variant="outlined"
+            sx={{ flex: 1, borderRadius: 2 }}
           >
-            BATAL
+            Batal
           </Button>
-
           <Button
             variant="contained"
             color="error"
             onClick={handleDelete}
-            sx={{
-              borderRadius: 2,
-              px: 3,
-              fontWeight: 600,
-              boxShadow: "none",
-            }}
+            sx={{ flex: 1, borderRadius: 2 }}
           >
-            HAPUS
+            Hapus
           </Button>
         </DialogActions>
       </Dialog>

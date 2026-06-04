@@ -2,8 +2,10 @@ import { db } from "../db.js";
 import { getWIBTime, formatWIB } from "../utils/getTime.js";
 
 // ── Konstanta ─────────────────────────────────────────────────────────────────
-const OFFICE_LAT = 1.1168748359584304;
-const OFFICE_LNG = 104.09293169994906;
+// const OFFICE_LAT = 1.1168748359584304;
+// const OFFICE_LNG = 104.09293169994906;
+const OFFICE_LAT = 1.1198625933680553;
+const OFFICE_LNG = 104.11315981359179;
 const MAX_RADIUS = 100; // meter — radius area absen yang diizinkan
 const BATAS_AWAL_MENIT = 120; // menit — berapa lama sebelum shift absen boleh dibuka
 
@@ -173,11 +175,9 @@ export const absenMasuk = async (req, res) => {
       return res.status(400).json({ message: "Hari ini kamu terjadwal libur" });
     }
     if (shift_kode === "CT") {
-      return res
-        .status(400)
-        .json({
-          message: "Kamu sedang cuti hari ini. Absen tidak diperlukan.",
-        });
+      return res.status(400).json({
+        message: "Kamu sedang cuti hari ini. Absen tidak diperlukan.",
+      });
     }
 
     // ── Validasi tidak boleh absen terlalu awal ───────────────────────────
@@ -373,8 +373,8 @@ export const getTodayAbsensi = async (req, res) => {
       const absen = absensi.find((a) => a.pegawai_id === p.id);
       return {
         ...p,
-        status: absen?.status ?? "Alpha",
-        tipe: absen?.tipe ?? "Alpha",
+        status: absen?.status ?? "Alfa",
+        tipe: absen?.tipe ?? "Alfa",
         jam_masuk: absen?.jam_masuk ?? null,
         jam_pulang: absen?.jam_pulang ?? null,
       };

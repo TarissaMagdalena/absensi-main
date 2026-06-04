@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Drawer,
@@ -8,7 +9,13 @@ import {
   Typography,
   Box,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from "@mui/material";
+
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AssessmentIcon from "@mui/icons-material/Assessment";
@@ -18,22 +25,23 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
-export default function SidebarAdmin() {
+const DRAWER_WIDTH = 240;
+
+export default function SidebarAdmin({ open, onClose, isMobile }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [dialogKeluar, setDialogKeluar] = useState(false);
 
-  // ── Gaya icon menu ────────────────────────────────────────────────────────
-  const iconStyle = { fontSize: 24, color: "#555" };
+  const iconStyle = { fontSize: 22, color: "#555" };
 
-  // ── Daftar menu navigasi beserta icon dan path tujuan ─────────────────────
   const menu = [
     {
-      text: "Dashboard",
+      text: "Beranda",
       icon: <DashboardIcon sx={iconStyle} />,
-      path: "/admin/dashboard",
+      path: "/admin/beranda",
     },
     {
-      text: "Jadwal Shift",
+      text: "Jadwal Kerja",
       icon: <CalendarMonthIcon sx={iconStyle} />,
       path: "/admin/jadwal",
     },
@@ -64,27 +72,37 @@ export default function SidebarAdmin() {
     },
   ];
 
-  return (
-    <Drawer
-      variant="permanent"
+  const handleNav = (path) => {
+    navigate(path);
+    if (isMobile) onClose();
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
+  const drawerPaperStyle = {
+    width: DRAWER_WIDTH,
+    maxWidth: DRAWER_WIDTH,
+    boxSizing: "border-box",
+    overflowX: "hidden",
+    overflowY: "hidden",
+  };
+
+  const drawerContent = (
+    <Box
       sx={{
-        width: 240,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: 240,
-          height: "100vh",
-          position: "fixed",
-          left: 0,
-          top: 0,
-          overflowX: "hidden",
-          overflowY: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: "#fff",
-        },
+        width: DRAWER_WIDTH,
+        maxWidth: DRAWER_WIDTH,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#fff",
+        overflowX: "hidden",
+        overflowY: "hidden",
       }}
     >
-      {/* ── Logo aplikasi ── */}
       <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
         <Typography variant="h5" fontWeight="bold">
           E-Absen
@@ -93,14 +111,14 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* ── Info profil admin (statis) ── */}
-      <List>
+      <List sx={{ overflowX: "hidden" }}>
         <ListItemButton
           disableRipple
           sx={{
             mx: 1,
             mb: 1,
             gap: 2,
+            maxWidth: "calc(100% - 16px)",
             cursor: "default",
             "&:hover": { backgroundColor: "transparent" },
           }}
@@ -116,7 +134,8 @@ export default function SidebarAdmin() {
               }}
             />
           </ListItemIcon>
-          <Typography fontSize={16} fontWeight="bold">
+
+          <Typography fontSize={15} fontWeight="bold" noWrap>
             Admin
           </Typography>
         </ListItemButton>
@@ -124,36 +143,37 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* ── Daftar menu navigasi ── */}
-      <List>
+      <List sx={{ flexGrow: 1, overflowX: "hidden" }}>
         {menu.map((item, index) => {
-          // Cek apakah menu ini sedang aktif berdasarkan pathname
           const active = location.pathname === item.path;
+
           return (
             <ListItemButton
               key={index}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNav(item.path)}
               sx={{
                 backgroundColor: active ? "#e3f2fd" : "transparent",
                 borderRadius: 2,
                 mx: 1,
-                mb: 1,
+                mb: 0.5,
                 gap: 2,
-                display: "flex",
-                justifyContent: "space-between",
-                "&:hover": { backgroundColor: active ? "#e3f2fd" : "#f5f5f5" },
+                maxWidth: "calc(100% - 16px)",
+                overflowX: "hidden",
+                "&:hover": {
+                  backgroundColor: active ? "#e3f2fd" : "#f5f5f5",
+                },
               }}
             >
-              <Box display="flex" alignItems="center" gap={2}>
-                <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: active ? "bold" : "normal",
-                  }}
-                />
-              </Box>
+              <ListItemIcon sx={{ minWidth: 0 }}>{item.icon}</ListItemIcon>
+
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: active ? "bold" : "normal",
+                  noWrap: true,
+                }}
+              />
             </ListItemButton>
           );
         })}
@@ -161,41 +181,97 @@ export default function SidebarAdmin() {
 
       <Divider />
 
-      {/* ── Tombol logout di bagian bawah sidebar ── */}
-      <Box
-        sx={{
-          mt: "auto",
-          backgroundColor: "#fff",
-        }}
+      <List sx={{ overflowX: "hidden" }}>
+        <ListItemButton
+          onClick={() => setDialogKeluar(true)}
+          sx={{
+            mx: 1,
+            mb: 1,
+            gap: 2,
+            borderRadius: 2,
+            maxWidth: "calc(100% - 16px)",
+            color: "#d32f2f",
+            "&:hover": { backgroundColor: "#fdecea" },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 0 }}>
+            <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
+          </ListItemIcon>
+
+          <ListItemText
+            primary="Keluar"
+            primaryTypographyProps={{
+              fontSize: 14,
+              fontWeight: "bold",
+              noWrap: true,
+            }}
+          />
+        </ListItemButton>
+      </List>
+    </Box>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <Drawer
+          variant="temporary"
+          open={open}
+          onClose={onClose}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            "& .MuiDrawer-paper": drawerPaperStyle,
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      ) : (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            overflowX: "hidden",
+            "& .MuiDrawer-paper": drawerPaperStyle,
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
+
+      <Dialog
+        open={dialogKeluar}
+        onClose={() => setDialogKeluar(false)}
+        maxWidth="xs"
+        fullWidth
       >
-        <List>
-          <ListItemButton
-            onClick={() => {
-              // Hapus sesi user dan arahkan ke halaman login
-              if (window.confirm("Yakin ingin keluar?")) {
-                localStorage.removeItem("user");
-                navigate("/");
-              }
-            }}
-            sx={{
-              mx: 1,
-              mb: 1,
-              gap: 2,
-              borderRadius: 2,
-              color: "#d32f2f",
-              "&:hover": { backgroundColor: "#fdecea" },
-            }}
+        <DialogTitle fontWeight="bold">Konfirmasi Keluar</DialogTitle>
+
+        <DialogContent>
+          <Typography fontSize={14} color="text.secondary">
+            Apakah kamu yakin ingin keluar dari aplikasi?
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDialogKeluar(false)}
+            fullWidth
           >
-            <ListItemIcon sx={{ minWidth: 0 }}>
-              <LogoutIcon sx={{ ...iconStyle, color: "#d32f2f" }} />
-            </ListItemIcon>
-            <ListItemText
-              primary="Keluar"
-              primaryTypographyProps={{ fontSize: 14, fontWeight: "bold" }}
-            />
-          </ListItemButton>
-        </List>
-      </Box>
-    </Drawer>
+            Batal
+          </Button>
+
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleKonfirmasiKeluar}
+            fullWidth
+          >
+            Keluar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

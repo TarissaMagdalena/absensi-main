@@ -4,8 +4,10 @@ import L from "leaflet";
 
 // ── Koordinat & konfigurasi kantor ───────────────────────────────────────────
 const OFFICE = {
-  lat: 1.1168748359584304,
-  lng: 104.09293169994906,
+  // lat: 1.1168748359584304,
+  // lng: 104.09293169994906,
+  lat: 1.1198625933680553,
+  lng: 104.11315981359179,
 };
 const RADIUS_METER = 100; // radius area absensi yang diizinkan (meter)
 

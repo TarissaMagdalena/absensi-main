@@ -1,80 +1,76 @@
 import { useState, useMemo } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutPegawai from "../../layout/DashboardLayoutPegawai";
-
 import {
-  Box,
-  Typography,
-  Paper,
-  TextField,
-  Button,
-  InputAdornment,
-  IconButton,
   Alert,
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  Paper,
   Snackbar,
+  TextField,
+  Typography,
 } from "@mui/material";
-
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
+// ─── Konstanta ────────────────────────────────────────────────────────────────
+const STRENGTH_MAP = [
+  { label: "Lemah", color: "error.main", hex: "#e53935" },
+  { label: "Lemah", color: "error.main", hex: "#e53935" },
+  { label: "Sedang", color: "warning.main", hex: "#fbc02d" },
+  { label: "Sedang", color: "warning.main", hex: "#fbc02d" },
+  { label: "Kuat", color: "success.main", hex: "#43a047" },
+];
+const PW_INIT = { current: "", new: "", confirm: "" };
+const SHOW_INIT = { current: false, new: false, confirm: false };
+
+// ─── Komponen utama ───────────────────────────────────────────────────────────
 export default function PengaturanPegawai() {
-  // 🔥 Ambil data user dari localStorage
   const user = useMemo(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
+    const s = localStorage.getItem("user");
+    return s ? JSON.parse(s) : null;
   }, []);
 
-  const [showPassword, setShowPassword] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
-
-  const [password, setPassword] = useState({
-    current: "",
-    new: "",
-    confirm: "",
-  });
-
-  const [strength, setStrength] = useState({ score: 0, label: "" });
-
-  // 🔥 Snackbar feedback
+  const [showPw, setShowPw] = useState(SHOW_INIT);
+  const [password, setPassword] = useState(PW_INIT);
+  const [strength, setStrength] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
-  const showSnackbar = (message, severity = "success") => {
+  const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
+  const closeSnackbar = () => setSnackbar((s) => ({ ...s, open: false }));
+
+  const togglePw = (field) => setShowPw((p) => ({ ...p, [field]: !p[field] }));
+
+  // Hitung skor kekuatan password
+  const calcStrength = (pass) => {
+    let s = 0;
+    if (pass.length >= 8) s++;
+    if (/[A-Z]/.test(pass)) s++;
+    if (/[0-9]/.test(pass)) s++;
+    if (/[^A-Za-z0-9]/.test(pass)) s++;
+    setStrength(s);
   };
 
-  const checkStrength = (pass) => {
-    let score = 0;
-    if (pass.length >= 8) score++;
-    if (/[A-Z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass)) score++;
-    if (/[^A-Za-z0-9]/.test(pass)) score++;
+  const {
+    label: strengthLabel,
+    color: strengthColor,
+    hex: strengthHex,
+  } = STRENGTH_MAP[strength];
 
-    const label = score <= 1 ? "Lemah" : score <= 3 ? "Sedang" : "Kuat";
-    setStrength({ score, label });
-  };
-
-  const togglePassword = (field) => {
-    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
-
-  // 🔥 Ganti password ke API
+  // Ganti password
   const handleUpdatePassword = async () => {
-    if (!password.current || !password.new || !password.confirm) {
+    if (!password.current || !password.new || !password.confirm)
       return showSnackbar("Semua field wajib diisi", "error");
-    }
-    if (password.new !== password.confirm) {
+    if (password.new !== password.confirm)
       return showSnackbar("Konfirmasi password tidak cocok", "error");
-    }
-    if (strength.score < 2) {
-      return showSnackbar("Kata Sandi terlalu lemah", "error");
-    }
+    if (strength < 2) return showSnackbar("Kata sandi terlalu lemah", "error");
 
     try {
       const res = await apiFetch(
@@ -90,21 +86,27 @@ export default function PengaturanPegawai() {
           }),
         },
       );
-
       const data = await res.json();
-
-      if (!res.ok) {
+      if (!res.ok)
         return showSnackbar(data.message || "Gagal mengubah password", "error");
-      }
-
-      setPassword({ current: "", new: "", confirm: "" });
-      setStrength({ score: 0, label: "" });
-      showSnackbar("Kata Sandi berhasil diubah");
+      setPassword(PW_INIT);
+      setStrength(0);
+      showSnackbar("✅ Kata sandi berhasil diubah");
     } catch {
       showSnackbar("Gagal terhubung ke server", "error");
     }
   };
 
+  // Helper: adornment toggle visibilitas password
+  const pwAdornment = (field) => (
+    <InputAdornment position="end">
+      <IconButton onClick={() => togglePw(field)} edge="end">
+        {showPw[field] ? <VisibilityOff /> : <Visibility />}
+      </IconButton>
+    </InputAdornment>
+  );
+
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <DashboardLayoutPegawai>
       <Box>
@@ -115,175 +117,177 @@ export default function PengaturanPegawai() {
           Perbarui kata sandi akun Anda secara berkala untuk keamanan
         </Typography>
 
-        {/* ================= PROFILE ================= */}
+        {/* ── Informasi Akun ─────────────────────────────────────────────── */}
         <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-          <Typography fontWeight="bold" mb={2}>
-            Informasi Akun
-          </Typography>
+          <Box mb={2}>
+            <Typography variant="h6" fontWeight="bold">
+              Informasi Akun
+            </Typography>
 
-          <Box display="flex" gap={2} flexWrap="wrap">
+            <Typography variant="body2" color="text.secondary">
+              Data akun dikelola oleh admin dan tidak dapat diubah secara
+              mandiri.
+            </Typography>
+          </Box>
+
+          {/* Mobile: stack vertikal | Desktop: horizontal */}
+          <Box
+            display="flex"
+            flexDirection={{ xs: "column", sm: "row" }}
+            gap={2}
+            flexWrap="wrap"
+          >
             <TextField
               size="small"
               label="Nama Lengkap"
               value={user?.nama || "-"}
               disabled
-              sx={{ minWidth: 200 }}
+              fullWidth={true}
+              sx={{ flex: 1, minWidth: { sm: 180 } }}
             />
             <TextField
               size="small"
               label="NIK"
-              value={user?.nik || "-"}
+              value={user?.nik || "Belum tersedia"}
               disabled
-              sx={{ minWidth: 200 }}
+              fullWidth={true}
+              sx={{ flex: 1, minWidth: { sm: 140 } }}
             />
             <TextField
               size="small"
               label="Nama Pengguna"
               value={user?.email || "-"}
               disabled
-              sx={{ minWidth: 220 }}
               helperText="Nama Pengguna tidak dapat diubah"
+              fullWidth={true}
+              sx={{ flex: 1, minWidth: { sm: 200 } }}
             />
           </Box>
         </Paper>
-        {/* ================= PASSWORD ================= */}
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
-          <Typography fontWeight="bold" mb={2}>
-            Ubah Kata Sandi
-          </Typography>
 
+        {/* ── Ubah Kata Sandi ────────────────────────────────────────────── */}
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+          <Box mb={2}>
+            <Typography variant="h6" fontWeight="bold">
+              Ubah Kata Sandi
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary">
+              Gunakan kata sandi yang kuat untuk menjaga keamanan akun mandiri.
+            </Typography>
+          </Box>
+
+          {/* Semua field stack vertikal di mobile, horizontal di desktop */}
           <Box
             display="flex"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            flexWrap="wrap"
+            flexDirection={{ xs: "column", sm: "row" }}
             gap={2}
+            flexWrap="wrap"
+            mb={2}
           >
-            <Box display="flex" gap={2} flexWrap="wrap">
-              {/* CURRENT */}
+            {/* Kata sandi saat ini */}
+            <TextField
+              size="small"
+              label="Kata Sandi Saat Ini"
+              type={showPw.current ? "text" : "password"}
+              value={password.current}
+              onChange={(e) =>
+                setPassword({ ...password, current: e.target.value })
+              }
+              fullWidth={true}
+              sx={{ flex: 1, minWidth: { sm: 180 } }}
+              InputProps={{ endAdornment: pwAdornment("current") }}
+            />
+
+            {/* Kata sandi baru + strength bar */}
+            <Box sx={{ flex: 1, minWidth: { sm: 180 } }}>
               <TextField
+                fullWidth
                 size="small"
-                type={showPassword.current ? "text" : "password"}
-                label="Kata Sandi Saat Ini"
-                value={password.current}
-                sx={{ minWidth: 200 }}
-                onChange={(e) =>
-                  setPassword({ ...password, current: e.target.value })
-                }
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => togglePassword("current")}>
-                        {showPassword.current ? (
-                          <VisibilityOff />
-                        ) : (
-                          <Visibility />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
+                label="Kata Sandi Baru"
+                type={showPw.new ? "text" : "password"}
+                value={password.new}
+                onChange={(e) => {
+                  setPassword({ ...password, new: e.target.value });
+                  calcStrength(e.target.value);
                 }}
+                InputProps={{ endAdornment: pwAdornment("new") }}
               />
-
-              {/* NEW */}
-              <Box>
-                <TextField
-                  size="small"
-                  type={showPassword.new ? "text" : "password"}
-                  label="Kata Sandi Baru"
-                  value={password.new}
-                  sx={{ minWidth: 200 }}
-                  onChange={(e) => {
-                    setPassword({ ...password, new: e.target.value });
-                    checkStrength(e.target.value);
-                  }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => togglePassword("new")}>
-                          {showPassword.new ? (
-                            <VisibilityOff />
-                          ) : (
-                            <Visibility />
-                          )}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                {/* STRENGTH BAR */}
-                {password.new.length > 0 && (
-                  <Box mt={1}>
+              {/* Strength bar — muncul saat field terisi */}
+              {password.new.length > 0 && (
+                <Box mt={1}>
+                  <Box
+                    sx={{
+                      height: 6,
+                      borderRadius: 5,
+                      backgroundColor: "#eee",
+                      overflow: "hidden",
+                    }}
+                  >
                     <Box
                       sx={{
-                        height: 6,
-                        borderRadius: 5,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
+                        height: "100%",
+                        width: `${(strength / 4) * 100}%`,
+                        backgroundColor: strengthHex,
+                        transition: "0.3s",
                       }}
-                    >
-                      <Box
-                        sx={{
-                          height: "100%",
-                          width: `${(strength.score / 4) * 100}%`,
-                          backgroundColor:
-                            strength.score <= 1
-                              ? "#e53935"
-                              : strength.score <= 3
-                                ? "#fbc02d"
-                                : "#43a047",
-                          transition: "0.3s",
-                        }}
-                      />
-                    </Box>
-                    <Typography
-                      variant="caption"
-                      fontWeight="bold"
-                      color={
-                        strength.score <= 1
-                          ? "error.main"
-                          : strength.score <= 3
-                            ? "warning.main"
-                            : "success.main"
-                      }
-                    >
-                      {strength.label}
-                    </Typography>
+                    />
                   </Box>
-                )}
-              </Box>
-
-              {/* CONFIRM */}
-              <TextField
-                size="small"
-                type={showPassword.confirm ? "text" : "password"}
-                label="Konfirmasi Kata Sandi"
-                value={password.confirm}
-                sx={{ minWidth: 200 }}
-                onChange={(e) =>
-                  setPassword({ ...password, confirm: e.target.value })
-                }
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => togglePassword("confirm")}>
-                        {showPassword.confirm ? (
-                          <VisibilityOff />
-                        ) : (
-                          <Visibility />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                  <Typography
+                    variant="caption"
+                    fontWeight="bold"
+                    color={strengthColor}
+                  >
+                    {strengthLabel}
+                  </Typography>
+                </Box>
+              )}
             </Box>
 
+            {/* Konfirmasi kata sandi */}
+            <TextField
+              size="small"
+              label="Konfirmasi Kata Sandi Baru"
+              type={showPw.confirm ? "text" : "password"}
+              value={password.confirm}
+              onChange={(e) =>
+                setPassword({ ...password, confirm: e.target.value })
+              }
+              fullWidth={true}
+              sx={{ flex: 1, minWidth: { sm: 180 } }}
+              InputProps={{ endAdornment: pwAdornment("confirm") }}
+              helperText={
+                password.confirm.length > 0
+                  ? password.confirm === password.new
+                    ? "✓ Password cocok"
+                    : "✗ Password tidak cocok"
+                  : ""
+              }
+              FormHelperTextProps={{
+                style: {
+                  color:
+                    password.confirm.length > 0
+                      ? password.confirm === password.new
+                        ? "#43a047"
+                        : "#e53935"
+                      : "inherit",
+                  fontWeight: 500,
+                },
+              }}
+            />
+          </Box>
+
+          {/* Tombol — full width di mobile, auto di desktop */}
+          <Box display="flex" justifyContent="flex-end">
             <Button
               variant="contained"
               color="secondary"
               onClick={handleUpdatePassword}
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+              }}
             >
               Perbarui Kata Sandi
             </Button>
@@ -291,14 +295,18 @@ export default function PengaturanPegawai() {
         </Paper>
       </Box>
 
-      {/* 🔥 SNACKBAR FEEDBACK */}
+      {/* ── Snackbar ──────────────────────────────────────────────────────── */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={closeSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snackbar.severity} variant="filled">
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={closeSnackbar}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

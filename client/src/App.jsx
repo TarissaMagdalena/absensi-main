@@ -25,7 +25,7 @@ function App() {
 
       {/* ── Route ADMIN — hanya bisa diakses role "admin" ─────────────────── */}
       <Route
-        path="/admin/dashboard"
+        path="/admin/beranda"
         element={
           <ProtectedRoute requiredRole="admin">
             <DashboardAdmin />
@@ -83,7 +83,7 @@ function App() {
 
       {/* ── Route PEGAWAI — hanya bisa diakses role "pegawai" ─────────────── */}
       <Route
-        path="/dashboard"
+        path="/beranda"
         element={
           <ProtectedRoute requiredRole="pegawai">
             <Dashboard />
@@ -114,7 +114,7 @@ function App() {
 }
 
 // ── LoginGuard ────────────────────────────────────────────────────────────────
-// Jika user sudah login dan mengakses "/", langsung redirect ke dashboard
+// Jika user sudah login dan mengakses "/", langsung redirect ke beranda
 // sesuai rolenya. Jika belum login, tampilkan halaman login.
 function LoginGuard() {
   let user = null;
@@ -126,8 +126,8 @@ function LoginGuard() {
   }
 
   if (!user) return <Login />;
-  if (user.role === "admin") return <Navigate to="/admin/dashboard" replace />;
-  if (user.role === "pegawai") return <Navigate to="/dashboard" replace />;
+  if (user.role === "admin") return <Navigate to="/admin/beranda" replace />;
+  if (user.role === "pegawai") return <Navigate to="/beranda" replace />;
   return <Login />;
 }
 

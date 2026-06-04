@@ -1,3 +1,6 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// client/src/pages/admin/JadwalShift.jsx
+// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback, memo, useMemo } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -26,6 +29,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
@@ -36,7 +41,9 @@ import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import SaveIcon from "@mui/icons-material/Save";
 
-// ─── Konstanta ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// KONSTANTA
+// ═══════════════════════════════════════════════════════════════════════════════
 const SHIFT_COLORS = {
   P: { bg: "#e3f2fd", color: "#1565c0", border: "#90caf9" },
   PK: { bg: "#e8f5e9", color: "#2e7d32", border: "#a5d6a7" },
@@ -64,7 +71,9 @@ const NAMA_BULAN = [
   "Desember",
 ];
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER
+// ═══════════════════════════════════════════════════════════════════════════════
 const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 const formatBulan = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 const getHariDariTanggal = (tgl) => {
@@ -72,7 +81,6 @@ const getHariDariTanggal = (tgl) => {
   return new Date(y, m - 1, d).getDay();
 };
 
-// ─── Generator pola jadwal ────────────────────────────────────────────────────
 function generatePolaA(
   jumlahHari,
   urutanShift,
@@ -97,11 +105,13 @@ function generatePolaA(
     (_, d) => siklus[(startOffset + d) % siklus.length],
   );
 }
+
 function generatePolaB(jumlahHari, cycleOffset) {
   return Array.from({ length: jumlahHari }, (_, d) =>
     (cycleOffset + d) % 7 < 5 ? "P" : "L",
   );
 }
+
 const defaultConfig = () => ({
   kelompok: "A",
   urutanShift: ["PK", "MR", "MK", "PR"],
@@ -111,7 +121,9 @@ const defaultConfig = () => ({
   cycleOffset: 0,
 });
 
-// ─── Sub-komponen: input keterangan cuti ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUB-KOMPONEN
+// ═══════════════════════════════════════════════════════════════════════════════
 function KeteranganInput({ value, onChange }) {
   const [local, setLocal] = useState(value);
   return (
@@ -119,18 +131,17 @@ function KeteranganInput({ value, onChange }) {
       fullWidth
       size="small"
       label="Alasan Cuti *"
+      autoFocus
       placeholder="Contoh: Cuti tahunan, Cuti menikah, Cuti melahirkan"
       value={local}
-      onChange={(e) => setLocal(e.target.value)}
-      onBlur={() => onChange(local)}
       multiline
       rows={2}
-      autoFocus
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => onChange(local)}
     />
   );
 }
 
-// ─── Build dropdown items shift ───────────────────────────────────────────────
 function buildMenuItems(shiftList) {
   const items = [
     <MenuItem key="__empty__" value="">
@@ -199,7 +210,6 @@ function buildMenuItems(shiftList) {
   return items;
 }
 
-// ─── Sel shift ────────────────────────────────────────────────────────────────
 const ShiftCell = memo(function ShiftCell({
   kode,
   onChange,
@@ -213,7 +223,7 @@ const ShiftCell = memo(function ShiftCell({
   return (
     <td
       style={{
-        padding: "3px",
+        padding: "2px",
         borderRight: "1px solid #f0f0f0",
         borderBottom: "1px solid #f0f0f0",
         background: hari === 0 ? "#fff8f8" : "transparent",
@@ -227,14 +237,14 @@ const ShiftCell = memo(function ShiftCell({
           displayEmpty
           renderValue={(val) =>
             val ? (
-              <span style={{ fontWeight: "bold", fontSize: 12 }}>{val}</span>
+              <span style={{ fontWeight: "bold", fontSize: 11 }}>{val}</span>
             ) : (
-              <em style={{ color: "#ccc", fontSize: 11 }}>-</em>
+              <em style={{ color: "#ccc", fontSize: 10 }}>-</em>
             )
           }
           sx={{
-            width: 56,
-            fontSize: 12,
+            width: 52,
+            fontSize: 11,
             fontWeight: "bold",
             backgroundColor: c.bg,
             color: c.color,
@@ -242,10 +252,10 @@ const ShiftCell = memo(function ShiftCell({
             borderRadius: 1,
             "& .MuiOutlinedInput-notchedOutline": { border: "none" },
             "& .MuiSelect-select": {
-              padding: "4px 6px",
-              paddingRight: "20px !important",
+              padding: "3px 4px",
+              paddingRight: "18px !important",
             },
-            "& .MuiSelect-icon": { fontSize: 16, right: 2 },
+            "& .MuiSelect-icon": { fontSize: 14, right: 1 },
           }}
         >
           {menuItems}
@@ -260,8 +270,8 @@ const ShiftCell = memo(function ShiftCell({
                 position: "absolute",
                 top: 0,
                 right: 0,
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 borderRadius: "50%",
                 backgroundColor: "#f57f17",
                 border: "1px solid white",
@@ -276,8 +286,8 @@ const ShiftCell = memo(function ShiftCell({
                 position: "absolute",
                 top: 0,
                 right: 0,
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 borderRadius: "50%",
                 backgroundColor: "#2e7d32",
                 cursor: "help",
@@ -291,7 +301,6 @@ const ShiftCell = memo(function ShiftCell({
   );
 });
 
-// ─── Baris pegawai di grid ────────────────────────────────────────────────────
 const ShiftRow = memo(function ShiftRow({
   pegawai,
   pi,
@@ -311,12 +320,13 @@ const ShiftRow = memo(function ShiftRow({
           left: 0,
           zIndex: 1,
           background: bg,
-          padding: "8px 16px",
+          padding: "6px 10px",
           fontWeight: "bold",
-          fontSize: 13,
+          fontSize: 12,
           borderRight: "2px solid #e0e0e0",
           borderBottom: "1px solid #f0f0f0",
           whiteSpace: "nowrap",
+          minWidth: 110,
         }}
       >
         {pegawai.nama}
@@ -344,8 +354,14 @@ const ShiftRow = memo(function ShiftRow({
   );
 });
 
-// ─── Komponen utama ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// KOMPONEN UTAMA
+// ═══════════════════════════════════════════════════════════════════════════════
 export default function JadwalShift() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isSmall = useMediaQuery(theme.breakpoints.down("sm")); // alias untuk bottomSheet
+
   const today = new Date();
   const [tahun, setTahun] = useState(today.getFullYear());
   const [bulan, setBulan] = useState(today.getMonth());
@@ -382,7 +398,26 @@ export default function JadwalShift() {
 
   const menuItems = useMemo(() => buildMenuItems(shiftList), [shiftList]);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
+  // 🔥 Bottom sheet props — dipakai Salin, Konfirmasi Cuti, Edit Shift
+  const bottomSheetProps = {
+    PaperProps: {
+      sx: {
+        borderRadius: isSmall ? "20px 20px 0 0" : 3,
+        minWidth: isSmall ? "100%" : undefined,
+        width: isSmall ? "100%" : undefined,
+        margin: 0,
+        position: isSmall ? "fixed" : "relative",
+        bottom: isSmall ? 0 : "auto",
+      },
+    },
+    sx: {
+      "& .MuiDialog-container": {
+        alignItems: isSmall ? "flex-end" : "center",
+      },
+    },
+  };
+
+  // ── Load data ────────────────────────────────────────────────────────────
   const loadPegawai = async () => {
     const res = await apiFetch("http://localhost:5000/api/pegawai");
     setPegawaiList(await res.json());
@@ -486,11 +521,11 @@ export default function JadwalShift() {
       );
       const data = await res.json();
       if (!res.ok) return showSnackbar(data.message, "error");
-      showSnackbar("✅ Jam shift berhasil diupdate");
+      showSnackbar("✅ Jam kerja berhasil diupdate");
       setDialogEditShift(false);
       loadShift();
     } catch {
-      showSnackbar("Gagal update shift", "error");
+      showSnackbar("Gagal update jadwal", "error");
     }
   };
 
@@ -520,7 +555,7 @@ export default function JadwalShift() {
     }
   };
 
-  // ── Handle perubahan sel ──────────────────────────────────────────────────
+  // ── Perubahan sel ─────────────────────────────────────────────────────────
   const handleChange = useCallback((pegawai_id, tanggal, shift_kode) => {
     const key = `${pegawai_id}|${tanggal}`;
     setGrid((prev) => ({
@@ -622,7 +657,7 @@ export default function JadwalShift() {
     simpanJadwal(ketMap, suratMap);
   };
 
-  // ── Generate jadwal ───────────────────────────────────────────────────────
+  // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = () => {
     const jumlahHari = getDaysInMonth(tahun, bulan);
     const newGrid = { ...grid },
@@ -655,7 +690,7 @@ export default function JadwalShift() {
     );
   };
 
-  // ── Salin bulan ───────────────────────────────────────────────────────────
+  // ── Salin ─────────────────────────────────────────────────────────────────
   const handleSalin = async () => {
     if (!salinDari) return showSnackbar("Pilih bulan sumber dulu", "error");
     try {
@@ -740,45 +775,60 @@ export default function JadwalShift() {
 
   const jumlahChanges = Object.keys(changes).length;
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutAdmin>
-      <Box sx={{ overflowX: "hidden" }}>
-        {/* ── Header ────────────────────────────────────────────────────── */}
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          mb={3}
-          flexWrap="wrap"
-          gap={2}
-        >
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              Jadwal Shift
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Kelola jadwal shift pegawai per bulan
-            </Typography>
+      <Box>
+        {/* ── HEADER ─────────────────────────────────────────────────────── */}
+        <Box mb={2}>
+          <Box
+            display="flex"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            flexWrap="wrap"
+            gap={1}
+            mb={1}
+          >
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Jadwal Kerja
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Kelola jadwal kerja pegawai per bulan
+              </Typography>
+            </Box>
           </Box>
-          <Box display="flex" gap={1} flexWrap="wrap">
+          <Box
+            display="grid"
+            gridTemplateColumns={isMobile ? "1fr 1fr" : "repeat(4, auto)"}
+            gap={1}
+            justifyContent={isMobile ? "stretch" : "flex-end"}
+          >
             <Button
               variant="outlined"
+              size="small"
               startIcon={<AutoFixHighIcon />}
               onClick={() => setDialogGen(true)}
+              fullWidth={isMobile}
             >
-              Generate Jadwal
+              {isMobile ? "Generate" : "Buat Jadwal Otomatis"}
             </Button>
             <Button
               variant="outlined"
+              size="small"
               startIcon={<ContentCopyIcon />}
               onClick={() => setDialogSalin(true)}
+              fullWidth={isMobile}
             >
-              Salin Bulan Lalu
+              {isMobile ? "Salin" : "Salin Bulan Lalu"}
             </Button>
             <Button
               variant="outlined"
+              size="small"
               startIcon={<DownloadIcon />}
+              fullWidth={isMobile}
               onClick={() =>
                 window.open(
                   `http://localhost:5000/api/jadwal/download-pdf?bulan=${formatBulan(tahun, bulan)}`,
@@ -786,58 +836,67 @@ export default function JadwalShift() {
                 )
               }
             >
-              Unduh PDF
+              {isMobile ? "PDF" : "Unduh PDF"}
             </Button>
             <Button
               variant="contained"
+              size="small"
               startIcon={<SaveIcon />}
               onClick={handleSave}
               disabled={saving || jumlahChanges === 0}
+              fullWidth={isMobile}
             >
               {saving
                 ? "Menyimpan..."
                 : jumlahChanges > 0
-                  ? `Simpan (${jumlahChanges} perubahan)`
+                  ? `Simpan (${jumlahChanges})`
                   : "Simpan Jadwal"}
             </Button>
           </Box>
         </Box>
 
-        {/* ── Navigasi bulan + chip shift ───────────────────────────────── */}
-        <Paper
-          sx={{
-            p: 2,
-            mb: 2,
-            borderRadius: 3,
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            flexWrap: "wrap",
-          }}
-        >
-          <IconButton onClick={prevBulan}>
-            <NavigateBeforeIcon />
-          </IconButton>
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-            minWidth={200}
-            textAlign="center"
+        {/* ── NAVIGASI BULAN + CHIP SHIFT ────────────────────────────────── */}
+        <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2, borderRadius: 3 }}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            gap={1}
+            mb={1.5}
           >
-            {NAMA_BULAN[bulan]} {tahun}
-          </Typography>
-          <IconButton onClick={nextBulan}>
-            <NavigateNextIcon />
-          </IconButton>
-          <Box display="flex" gap={1} flexWrap="wrap" ml="auto">
+            <IconButton size="small" onClick={prevBulan}>
+              <NavigateBeforeIcon />
+            </IconButton>
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              minWidth={isMobile ? 130 : 200}
+              textAlign="center"
+              fontSize={isMobile ? 15 : 18}
+            >
+              {NAMA_BULAN[bulan]} {tahun}
+            </Typography>
+            <IconButton size="small" onClick={nextBulan}>
+              <NavigateNextIcon />
+            </IconButton>
+          </Box>
+          <Box
+            display="flex"
+            gap={0.75}
+            flexWrap="wrap"
+            justifyContent={isMobile ? "flex-start" : "center"}
+          >
             {shiftList.map((s) => {
               const c = SHIFT_COLORS[s.kode] || SHIFT_COLORS[""];
               const jm = s.jam_masuk?.slice(0, 5) || "";
               const jp = s.jam_pulang?.slice(0, 5) || "";
+              const label = isMobile
+                ? `${s.kode}${jm && jp ? ` ${jm}–${jp}` : ""}`
+                : `${s.kode} - ${s.nama}${jm && jp ? ` · ${jm}–${jp}` : ""}`;
               return (
-                <Tooltip key={s.kode} title="Klik untuk edit jam shift">
+                <Tooltip key={s.kode} title={`${s.nama} — klik untuk edit jam`}>
                   <Chip
-                    label={`${s.kode} - ${s.nama}${jm && jp ? ` · ${jm}–${jp}` : ""}`}
+                    label={label}
                     size="small"
                     onClick={() => handleKlikShift(s)}
                     sx={{
@@ -845,9 +904,10 @@ export default function JadwalShift() {
                       color: c.color,
                       border: `1px solid ${c.border}`,
                       fontWeight: "bold",
-                      fontSize: 11,
+                      fontSize: isMobile ? 10 : 11,
                       cursor: "pointer",
                       "&:hover": { opacity: 0.8 },
+                      height: isMobile ? 22 : 24,
                     }}
                   />
                 </Tooltip>
@@ -862,99 +922,101 @@ export default function JadwalShift() {
                   color: SHIFT_COLORS.L.color,
                   border: `1px solid ${SHIFT_COLORS.L.border}`,
                   fontWeight: "bold",
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
+                  height: isMobile ? 22 : 24,
                 }}
               />
             )}
           </Box>
         </Paper>
 
-        {/* ── Grid jadwal — height fixed, scroll dua arah ── */}
+        {/* ── GRID JADWAL ─────────────────────────────────────────────────── */}
         {loading ? (
           <Box display="flex" justifyContent="center" py={8}>
             <CircularProgress />
           </Box>
         ) : (
-          <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
-            {/* Box ini yang handle scroll — bukan Paper-nya */}
-            <Box sx={{ height: 320, overflow: "auto", overflowY: "auto" }}>
-              <table
-                style={{ borderCollapse: "collapse", width: "max-content" }}
-              >
-                <thead>
-                  <tr>
-                    {/* Kolom Pegawai: sticky kiri + sticky atas */}
+          <Paper
+            sx={{
+              borderRadius: 3,
+              height: isMobile ? 260 : 320,
+              overflow: "auto",
+            }}
+          >
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      top: 0,
+                      zIndex: 3,
+                      background: "#1c2b4a",
+                      color: "white",
+                      padding: isMobile ? "8px 10px" : "12px 16px",
+                      textAlign: "left",
+                      fontSize: isMobile ? 11 : 13,
+                      fontWeight: "bold",
+                      minWidth: isMobile ? 100 : 150,
+                      borderRight: "2px solid #2e4a7a",
+                    }}
+                  >
+                    Pegawai
+                  </th>
+                  {tanggalList.map(({ d, tgl, hari }) => (
                     <th
+                      key={tgl}
                       style={{
                         position: "sticky",
-                        left: 0,
                         top: 0,
-                        zIndex: 3,
-                        background: "#1c2b4a",
+                        zIndex: 2,
+                        background:
+                          hari === 0
+                            ? "#b71c1c"
+                            : hari === 6
+                              ? "#1565c0"
+                              : "#1c2b4a",
                         color: "white",
-                        padding: "12px 16px",
-                        textAlign: "left",
-                        fontSize: 13,
-                        fontWeight: "bold",
-                        minWidth: 150,
-                        borderRight: "2px solid #2e4a7a",
+                        padding: isMobile ? "4px 2px" : "6px 4px",
+                        textAlign: "center",
+                        fontSize: isMobile ? 9 : 11,
+                        minWidth: isMobile ? 48 : 56,
+                        borderRight: "1px solid #2e4a7a",
                       }}
                     >
-                      Pegawai
-                    </th>
-                    {/* Header tanggal: sticky atas saja */}
-                    {tanggalList.map(({ d, tgl, hari }) => (
-                      <th
-                        key={tgl}
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 2,
-                          background:
-                            hari === 0
-                              ? "#b71c1c"
-                              : hari === 6
-                                ? "#1565c0"
-                                : "#1c2b4a",
-                          color: "white",
-                          padding: "6px 4px",
-                          textAlign: "center",
-                          fontSize: 11,
-                          minWidth: 62,
-                          borderRight: "1px solid #2e4a7a",
-                        }}
+                      <div style={{ fontWeight: "bold" }}>{d}</div>
+                      <div
+                        style={{ opacity: 0.8, fontSize: isMobile ? 8 : 10 }}
                       >
-                        <div style={{ fontWeight: "bold" }}>{d}</div>
-                        <div style={{ opacity: 0.8, fontSize: 10 }}>
-                          {NAMA_HARI[hari]}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pegawaiList.map((p, pi) => (
-                    <ShiftRow
-                      key={p.id}
-                      pegawai={p}
-                      pi={pi}
-                      tanggalList={tanggalList}
-                      grid={grid}
-                      changes={changes}
-                      ketGrid={ketGrid}
-                      menuItems={menuItems}
-                      onCellChange={handleChange}
-                    />
+                        {NAMA_HARI[hari]}
+                      </div>
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </Box>
+                </tr>
+              </thead>
+              <tbody>
+                {pegawaiList.map((p, pi) => (
+                  <ShiftRow
+                    key={p.id}
+                    pegawai={p}
+                    pi={pi}
+                    tanggalList={tanggalList}
+                    grid={grid}
+                    changes={changes}
+                    ketGrid={ketGrid}
+                    menuItems={menuItems}
+                    onCellChange={handleChange}
+                  />
+                ))}
+              </tbody>
+            </table>
           </Paper>
         )}
       </Box>
 
-      {/* ── Jatah Cuti ──────────────────────────────────────────────────────── */}
-      <Paper sx={{ borderRadius: 3, p: 3, mt: 3 }}>
+      {/* ── JATAH CUTI ────────────────────────────────────────────────────── */}
+      <Paper sx={{ borderRadius: 3, p: isMobile ? 2 : 3, mt: 3 }}>
         <Box
           display="flex"
           alignItems="center"
@@ -968,7 +1030,7 @@ export default function JadwalShift() {
               Jatah Cuti {tahun}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Default 12 hari/tahun. Sisa = Jatah − hari cuti terpakai.
+              Jatah cuti adalah 12 hari per tahun.
             </Typography>
           </Box>
           <Button
@@ -981,450 +1043,469 @@ export default function JadwalShift() {
             {savingCuti ? "Menyimpan..." : "Simpan Jatah Cuti"}
           </Button>
         </Box>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr style={{ background: "#1c2b4a" }}>
-              {["Pegawai", "Jatah Cuti (hari)", "Terpakai", "Sisa"].map(
-                (h, i) => (
+        <Box sx={{ overflowX: "auto" }}>
+          <table
+            style={{
+              borderCollapse: "collapse",
+              width: "100%",
+              minWidth: isMobile ? 340 : "auto",
+            }}
+          >
+            <thead>
+              <tr style={{ background: "#1c2b4a" }}>
+                {["Pegawai", "Jatah Cuti", "Terpakai", "Sisa"].map((h, i) => (
                   <th
                     key={h}
                     style={{
                       color: "white",
-                      padding: "10px 16px",
-                      fontSize: 13,
+                      padding: "10px 12px",
+                      fontSize: isMobile ? 11 : 13,
                       fontWeight: "bold",
                       textAlign: i === 0 ? "left" : "center",
-                      width: i === 0 ? undefined : i === 1 ? 180 : 120,
+                      width: i === 0 ? undefined : i === 1 ? 120 : 90,
                     }}
                   >
                     {h}
                   </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {pegawaiList.map((p, pi) => {
-              const jatah = jatahCuti[p.id] ?? 12;
-              const terpakai = terpakaiCuti[p.id] ?? 0;
-              const sisa = jatah - terpakai;
-              return (
-                <tr
-                  key={p.id}
-                  style={{ background: pi % 2 === 0 ? "#fff" : "#f8fafc" }}
-                >
-                  <td
-                    style={{
-                      padding: "10px 16px",
-                      fontWeight: "bold",
-                      fontSize: 13,
-                      borderBottom: "1px solid #f0f0f0",
-                    }}
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pegawaiList.map((p, pi) => {
+                const jatah = jatahCuti[p.id] ?? 12;
+                const terpakai = terpakaiCuti[p.id] ?? 0;
+                const sisa = jatah - terpakai;
+                return (
+                  <tr
+                    key={p.id}
+                    style={{ background: pi % 2 === 0 ? "#fff" : "#f8fafc" }}
                   >
-                    {p.nama}
-                  </td>
-                  <td
-                    style={{
-                      padding: "8px 16px",
-                      textAlign: "center",
-                      borderBottom: "1px solid #f0f0f0",
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={365}
-                      value={jatah}
-                      onChange={(e) =>
-                        setJatahCuti((prev) => ({
-                          ...prev,
-                          [p.id]: Math.max(0, Number(e.target.value)),
-                        }))
-                      }
+                    <td
                       style={{
-                        width: 80,
-                        textAlign: "center",
-                        padding: "6px",
-                        borderRadius: 6,
-                        border: "1px solid #e0e0e0",
-                        fontSize: 14,
+                        padding: "10px 12px",
                         fontWeight: "bold",
+                        fontSize: isMobile ? 12 : 13,
+                        borderBottom: "1px solid #f0f0f0",
                       }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px 16px",
-                      textAlign: "center",
-                      fontSize: 13,
-                      fontWeight: "bold",
-                      color: terpakai > 0 ? "#e65100" : "#757575",
-                      borderBottom: "1px solid #f0f0f0",
-                    }}
-                  >
-                    {terpakai} hari
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px 16px",
-                      textAlign: "center",
-                      fontSize: 13,
-                      fontWeight: "bold",
-                      color:
-                        sisa < 0
-                          ? "#b71c1c"
-                          : sisa === 0
-                            ? "#757575"
-                            : "#2e7d32",
-                      borderBottom: "1px solid #f0f0f0",
-                    }}
-                  >
-                    {sisa < 0 ? `${sisa} (melebihi!)` : `${sisa} hari`}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    >
+                      {p.nama}
+                    </td>
+                    <td
+                      style={{
+                        padding: "8px 12px",
+                        textAlign: "center",
+                        borderBottom: "1px solid #f0f0f0",
+                      }}
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        max={365}
+                        value={jatah}
+                        onChange={(e) =>
+                          setJatahCuti((prev) => ({
+                            ...prev,
+                            [p.id]: Math.max(0, Number(e.target.value)),
+                          }))
+                        }
+                        style={{
+                          width: 70,
+                          textAlign: "center",
+                          padding: "6px",
+                          borderRadius: 6,
+                          border: "1px solid #e0e0e0",
+                          fontSize: 14,
+                          fontWeight: "bold",
+                        }}
+                      />
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        textAlign: "center",
+                        fontSize: isMobile ? 12 : 13,
+                        fontWeight: "bold",
+                        color: terpakai > 0 ? "#e65100" : "#757575",
+                        borderBottom: "1px solid #f0f0f0",
+                      }}
+                    >
+                      {terpakai} hari
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        textAlign: "center",
+                        fontSize: isMobile ? 12 : 13,
+                        fontWeight: "bold",
+                        color:
+                          sisa < 0
+                            ? "#b71c1c"
+                            : sisa === 0
+                              ? "#757575"
+                              : "#2e7d32",
+                        borderBottom: "1px solid #f0f0f0",
+                      }}
+                    >
+                      {sisa < 0 ? `${sisa} (melebihi!)` : `${sisa} hari`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Box>
       </Paper>
 
-      {/* ════════ DIALOG GENERATE ════════ */}
+      {/* ════════ DIALOG GENERATE — fullScreen di mobile ════════ */}
       <Dialog
         open={dialogGen}
         onClose={() => setDialogGen(false)}
         maxWidth="lg"
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle fontWeight="bold">
-          Generate Jadwal Otomatis — {NAMA_BULAN[bulan]} {tahun}
+          Buat Jadwal Otomatis — {NAMA_BULAN[bulan]} {tahun}
         </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" mb={2}>
-            Atur urutan shift dan pola libur untuk setiap pegawai. Grid akan
-            terisi otomatis — masih bisa diedit manual sebelum disimpan.
+            Atur urutan jadwal kerja dan pola libur untuk setiap pegawai. Jadwal
+            akan dibuat secara otomatis dan dapat diedit sebelum disimpan.
           </Typography>
           <Box display="flex" gap={2} mb={2} flexWrap="wrap">
             <Paper
               variant="outlined"
-              sx={{ p: 1.5, flex: 1, minWidth: 260, borderRadius: 2 }}
+              sx={{ p: 1.5, flex: 1, minWidth: 220, borderRadius: 2 }}
             >
               <Typography variant="caption" fontWeight="bold" color="primary">
-                Kelompok A — Rotasi custom + libur selang
+                Kelompok A — Rotasi Jadwal dan Libur Berkala
               </Typography>
               <Typography variant="body2" mt={0.5}>
-                Tentukan urutan shift (mis. PK→MR→MK→PR), masing-masing 2 hari,
-                lalu L disisipkan setiap N hari kerja.
+                Tentukan urutan jadwal kerja (contoh. PK→MR→MK→PR),
+                masing-masing 2 hari, hari libur disisipkan setiap N hari kerja.
               </Typography>
             </Paper>
             <Paper
               variant="outlined"
-              sx={{ p: 1.5, flex: 1, minWidth: 260, borderRadius: 2 }}
+              sx={{ p: 1.5, flex: 1, minWidth: 220, borderRadius: 2 }}
             >
               <Typography
                 variant="caption"
                 fontWeight="bold"
                 color="success.main"
               >
-                Kelompok B — Pagi saja (5 kerja 2 libur)
+                Kelompok B — Pola 5 Hari Kerja, 2 Hari Libur
               </Typography>
               <Typography variant="body2" mt={0.5}>
-                5 hari P → 2 hari L, berulang. Atur posisi awal siklus.
+                5 hari kerja dilanjutkan 2 hari libur secara berulang.
               </Typography>
             </Paper>
           </Box>
           <Divider sx={{ mb: 2 }} />
-          <Table size="small">
-            <TableHead>
-              <TableRow
-                sx={{
-                  "& th": {
-                    fontWeight: "bold",
-                    fontSize: 12,
-                    backgroundColor: "#f5f5f5",
-                  },
-                }}
-              >
-                <TableCell sx={{ minWidth: 140 }}>Pegawai</TableCell>
-                <TableCell sx={{ minWidth: 80 }}>Kelompok</TableCell>
-                <TableCell sx={{ minWidth: 300 }}>Urutan Shift (A)</TableCell>
-                <TableCell sx={{ minWidth: 120 }}>Libur setiap (A)</TableCell>
-                <TableCell sx={{ minWidth: 110 }}>Durasi libur (A)</TableCell>
-                <TableCell sx={{ minWidth: 130 }}>Offset awal (A)</TableCell>
-                <TableCell sx={{ minWidth: 150 }}>Posisi siklus (B)</TableCell>
-                <TableCell sx={{ minWidth: 180 }}>Preview 10 hari</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pegawaiList.map((p) => {
-                const cfg = genConfig[p.id] || defaultConfig();
-                const isA = cfg.kelompok === "A";
-                const prev = previewSiklus(p.id);
-                return (
-                  <TableRow
-                    key={p.id}
-                    sx={{ verticalAlign: "top", "& td": { py: 1.5 } }}
-                  >
-                    <TableCell sx={{ fontWeight: "bold", fontSize: 12 }}>
-                      {p.nama}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        size="small"
-                        value={cfg.kelompok}
-                        onChange={(e) =>
-                          updateCfg(p.id, "kelompok", e.target.value)
-                        }
-                        sx={{ width: 75, fontSize: 12 }}
-                      >
-                        <MenuItem value="A">A</MenuItem>
-                        <MenuItem value="B">B</MenuItem>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Box
-                        display="flex"
-                        flexWrap="wrap"
-                        gap={0.5}
-                        alignItems="center"
-                      >
-                        {cfg.urutanShift.map((s, idx) => {
-                          const c = SHIFT_COLORS[s] || SHIFT_COLORS[""];
-                          return (
-                            <Box
-                              key={idx}
-                              display="flex"
-                              alignItems="center"
-                              gap={0.3}
+          <Box sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow
+                  sx={{
+                    "& th": {
+                      fontWeight: "bold",
+                      fontSize: 12,
+                      backgroundColor: "#f5f5f5",
+                    },
+                  }}
+                >
+                  <TableCell sx={{ minWidth: 120 }}>Pegawai</TableCell>
+                  <TableCell sx={{ minWidth: 80 }}>Kelompok</TableCell>
+                  <TableCell sx={{ minWidth: 260 }}>Urutan Jadwal</TableCell>
+                  <TableCell sx={{ minWidth: 110 }}>Libur Setiap </TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>Durasi Libur </TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>
+                    Posisi Awal Siklus
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 140 }}>Posisi Siklus</TableCell>
+                  <TableCell sx={{ minWidth: 160 }}>
+                    Pratinjau 10 hari
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pegawaiList.map((p) => {
+                  const cfg = genConfig[p.id] || defaultConfig();
+                  const isA = cfg.kelompok === "A";
+                  const prev = previewSiklus(p.id);
+                  return (
+                    <TableRow
+                      key={p.id}
+                      sx={{ verticalAlign: "top", "& td": { py: 1.5 } }}
+                    >
+                      <TableCell sx={{ fontWeight: "bold", fontSize: 12 }}>
+                        {p.nama}
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          size="small"
+                          value={cfg.kelompok}
+                          sx={{ width: 75, fontSize: 12 }}
+                          onChange={(e) =>
+                            updateCfg(p.id, "kelompok", e.target.value)
+                          }
+                        >
+                          <MenuItem value="A">A</MenuItem>
+                          <MenuItem value="B">B</MenuItem>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          display="flex"
+                          flexWrap="wrap"
+                          gap={0.5}
+                          alignItems="center"
+                        >
+                          {cfg.urutanShift.map((s, idx) => {
+                            const c = SHIFT_COLORS[s] || SHIFT_COLORS[""];
+                            return (
+                              <Box
+                                key={idx}
+                                display="flex"
+                                alignItems="center"
+                                gap={0.3}
+                              >
+                                <Select
+                                  size="small"
+                                  value={s}
+                                  disabled={!isA}
+                                  onChange={(e) =>
+                                    changeShiftUrutan(p.id, idx, e.target.value)
+                                  }
+                                  sx={{
+                                    width: 62,
+                                    fontSize: 12,
+                                    fontWeight: "bold",
+                                    backgroundColor: c.bg,
+                                    color: c.color,
+                                    border: `1px solid ${c.border}`,
+                                    borderRadius: 1,
+                                    "& .MuiOutlinedInput-notchedOutline": {
+                                      border: "none",
+                                    },
+                                    "& .MuiSelect-select": {
+                                      py: "3px",
+                                      pl: "5px",
+                                      pr: "18px !important",
+                                    },
+                                    "& .MuiSelect-icon": {
+                                      fontSize: 13,
+                                      right: 1,
+                                    },
+                                  }}
+                                >
+                                  {SHIFT_KERJA.map((sk) => {
+                                    const sc =
+                                      SHIFT_COLORS[sk] || SHIFT_COLORS[""];
+                                    return (
+                                      <MenuItem key={sk} value={sk}>
+                                        <Box
+                                          sx={{
+                                            px: 0.8,
+                                            py: 0.2,
+                                            borderRadius: 1,
+                                            fontSize: 12,
+                                            fontWeight: "bold",
+                                            backgroundColor: sc.bg,
+                                            color: sc.color,
+                                          }}
+                                        >
+                                          {sk}
+                                        </Box>
+                                      </MenuItem>
+                                    );
+                                  })}
+                                </Select>
+                                {isA && cfg.urutanShift.length > 1 && (
+                                  <IconButton
+                                    size="small"
+                                    sx={{ p: 0.3 }}
+                                    onClick={() => removeShiftUrutan(p.id, idx)}
+                                  >
+                                    <DeleteIcon
+                                      sx={{ fontSize: 13, color: "#e53935" }}
+                                    />
+                                  </IconButton>
+                                )}
+                                {idx < cfg.urutanShift.length - 1 && (
+                                  <Typography
+                                    sx={{ fontSize: 9, color: "#999", mx: 0.2 }}
+                                  >
+                                    →
+                                  </Typography>
+                                )}
+                              </Box>
+                            );
+                          })}
+                          {isA && (
+                            <IconButton
+                              size="small"
+                              onClick={() => addShiftUrutan(p.id)}
+                              sx={{
+                                p: 0.4,
+                                ml: 0.5,
+                                border: "1px dashed #90caf9",
+                                borderRadius: 1,
+                              }}
                             >
-                              <Select
-                                size="small"
-                                value={s}
-                                disabled={!isA}
-                                onChange={(e) =>
-                                  changeShiftUrutan(p.id, idx, e.target.value)
-                                }
+                              <AddIcon
+                                sx={{ fontSize: 13, color: "#1565c0" }}
+                              />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          disabled={!isA}
+                          value={cfg.liburSetiap}
+                          onChange={(e) =>
+                            updateCfg(
+                              p.id,
+                              "liburSetiap",
+                              Math.max(1, Number(e.target.value)),
+                            )
+                          }
+                          inputProps={{
+                            min: 1,
+                            max: 20,
+                            style: {
+                              fontSize: 12,
+                              width: 55,
+                              textAlign: "center",
+                            },
+                          }}
+                          helperText="hari kerja"
+                          FormHelperTextProps={{
+                            style: { fontSize: 10, margin: "2px 0 0 0" },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          disabled={!isA}
+                          value={cfg.liburDurasi}
+                          onChange={(e) =>
+                            updateCfg(
+                              p.id,
+                              "liburDurasi",
+                              Math.max(1, Number(e.target.value)),
+                            )
+                          }
+                          inputProps={{
+                            min: 1,
+                            max: 7,
+                            style: {
+                              fontSize: 12,
+                              width: 55,
+                              textAlign: "center",
+                            },
+                          }}
+                          helperText="hari libur"
+                          FormHelperTextProps={{
+                            style: { fontSize: 10, margin: "2px 0 0 0" },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          disabled={!isA}
+                          value={cfg.startOffset}
+                          onChange={(e) =>
+                            updateCfg(
+                              p.id,
+                              "startOffset",
+                              Math.max(0, Number(e.target.value)),
+                            )
+                          }
+                          inputProps={{
+                            min: 0,
+                            style: {
+                              fontSize: 12,
+                              width: 55,
+                              textAlign: "center",
+                            },
+                          }}
+                          helperText="Hari ke-N Siklus"
+                          FormHelperTextProps={{
+                            style: { fontSize: 10, margin: "2px 0 0 0" },
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          size="small"
+                          value={cfg.cycleOffset}
+                          disabled={isA}
+                          sx={{ width: 138, fontSize: 12 }}
+                          onChange={(e) =>
+                            updateCfg(
+                              p.id,
+                              "cycleOffset",
+                              Number(e.target.value),
+                            )
+                          }
+                        >
+                          {Array.from({ length: 7 }, (_, i) => (
+                            <MenuItem key={i} value={i}>
+                              {i < 5
+                                ? `Hari ke-${i + 1} (kerja)`
+                                : `Hari ke-${i + 1} (libur)`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Box display="flex" gap={0.4} flexWrap="wrap">
+                          {prev.map((kode, i) => {
+                            const c = SHIFT_COLORS[kode] || SHIFT_COLORS[""];
+                            return (
+                              <Box
+                                key={i}
                                 sx={{
-                                  width: 68,
-                                  fontSize: 12,
+                                  width: 26,
+                                  height: 20,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  borderRadius: 0.5,
+                                  fontSize: 9,
                                   fontWeight: "bold",
                                   backgroundColor: c.bg,
                                   color: c.color,
                                   border: `1px solid ${c.border}`,
-                                  borderRadius: 1,
-                                  "& .MuiOutlinedInput-notchedOutline": {
-                                    border: "none",
-                                  },
-                                  "& .MuiSelect-select": {
-                                    py: "4px",
-                                    pl: "6px",
-                                    pr: "20px !important",
-                                  },
-                                  "& .MuiSelect-icon": {
-                                    fontSize: 15,
-                                    right: 2,
-                                  },
                                 }}
                               >
-                                {SHIFT_KERJA.map((sk) => {
-                                  const sc =
-                                    SHIFT_COLORS[sk] || SHIFT_COLORS[""];
-                                  return (
-                                    <MenuItem key={sk} value={sk}>
-                                      <Box
-                                        sx={{
-                                          px: 0.8,
-                                          py: 0.2,
-                                          borderRadius: 1,
-                                          fontSize: 12,
-                                          fontWeight: "bold",
-                                          backgroundColor: sc.bg,
-                                          color: sc.color,
-                                        }}
-                                      >
-                                        {sk}
-                                      </Box>
-                                    </MenuItem>
-                                  );
-                                })}
-                              </Select>
-                              {isA && cfg.urutanShift.length > 1 && (
-                                <IconButton
-                                  size="small"
-                                  onClick={() => removeShiftUrutan(p.id, idx)}
-                                  sx={{ p: 0.3 }}
-                                >
-                                  <DeleteIcon
-                                    sx={{ fontSize: 14, color: "#e53935" }}
-                                  />
-                                </IconButton>
-                              )}
-                              {idx < cfg.urutanShift.length - 1 && (
-                                <Typography
-                                  sx={{ fontSize: 10, color: "#999", mx: 0.2 }}
-                                >
-                                  →
-                                </Typography>
-                              )}
-                            </Box>
-                          );
-                        })}
-                        {isA && (
-                          <IconButton
-                            size="small"
-                            onClick={() => addShiftUrutan(p.id)}
-                            sx={{
-                              p: 0.4,
-                              ml: 0.5,
-                              border: "1px dashed #90caf9",
-                              borderRadius: 1,
-                            }}
-                          >
-                            <AddIcon sx={{ fontSize: 14, color: "#1565c0" }} />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        type="number"
-                        disabled={!isA}
-                        value={cfg.liburSetiap}
-                        onChange={(e) =>
-                          updateCfg(
-                            p.id,
-                            "liburSetiap",
-                            Math.max(1, Number(e.target.value)),
-                          )
-                        }
-                        inputProps={{
-                          min: 1,
-                          max: 20,
-                          style: {
-                            fontSize: 12,
-                            width: 60,
-                            textAlign: "center",
-                          },
-                        }}
-                        helperText="hari kerja"
-                        FormHelperTextProps={{
-                          style: { fontSize: 10, margin: "2px 0 0 0" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        type="number"
-                        disabled={!isA}
-                        value={cfg.liburDurasi}
-                        onChange={(e) =>
-                          updateCfg(
-                            p.id,
-                            "liburDurasi",
-                            Math.max(1, Number(e.target.value)),
-                          )
-                        }
-                        inputProps={{
-                          min: 1,
-                          max: 7,
-                          style: {
-                            fontSize: 12,
-                            width: 60,
-                            textAlign: "center",
-                          },
-                        }}
-                        helperText="hari L"
-                        FormHelperTextProps={{
-                          style: { fontSize: 10, margin: "2px 0 0 0" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        type="number"
-                        disabled={!isA}
-                        value={cfg.startOffset}
-                        onChange={(e) =>
-                          updateCfg(
-                            p.id,
-                            "startOffset",
-                            Math.max(0, Number(e.target.value)),
-                          )
-                        }
-                        inputProps={{
-                          min: 0,
-                          style: {
-                            fontSize: 12,
-                            width: 60,
-                            textAlign: "center",
-                          },
-                        }}
-                        helperText="hari ke-N siklus"
-                        FormHelperTextProps={{
-                          style: { fontSize: 10, margin: "2px 0 0 0" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        size="small"
-                        value={cfg.cycleOffset}
-                        disabled={isA}
-                        onChange={(e) =>
-                          updateCfg(p.id, "cycleOffset", Number(e.target.value))
-                        }
-                        sx={{ width: 145, fontSize: 12 }}
-                      >
-                        {Array.from({ length: 7 }, (_, i) => (
-                          <MenuItem key={i} value={i}>
-                            {i < 5
-                              ? `Hari ke-${i + 1} (kerja)`
-                              : `Hari ke-${i + 1} (libur)`}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" gap={0.4} flexWrap="wrap">
-                        {prev.map((kode, i) => {
-                          const c = SHIFT_COLORS[kode] || SHIFT_COLORS[""];
-                          return (
-                            <Box
-                              key={i}
-                              sx={{
-                                width: 28,
-                                height: 22,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: 0.5,
-                                fontSize: 10,
-                                fontWeight: "bold",
-                                backgroundColor: c.bg,
-                                color: c.color,
-                                border: `1px solid ${c.border}`,
-                              }}
-                            >
-                              {kode || "·"}
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ fontSize: 9 }}
-                      >
-                        Tgl 1–10
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                                {kode || "·"}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontSize: 9 }}
+                        >
+                          Tgl 1–10
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogGen(false)}>Batal</Button>
@@ -1433,22 +1514,25 @@ export default function JadwalShift() {
             startIcon={<AutoFixHighIcon />}
             onClick={handleGenerate}
           >
-            Generate Sekarang
+            Buat Jadwal
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ════════ DIALOG SALIN ════════ */}
+      {/* ════════ DIALOG SALIN — bottom sheet di mobile ════════ */}
       <Dialog
         open={dialogSalin}
         onClose={() => setDialogSalin(false)}
         maxWidth="xs"
         fullWidth
+        fullScreen={false}
+        {...bottomSheetProps}
       >
         <DialogTitle fontWeight="bold">
           Salin Jadwal dari Bulan Lain
         </DialogTitle>
-        <DialogContent>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
           <Typography variant="body2" color="text.secondary" mb={2}>
             Jadwal bulan{" "}
             <strong>
@@ -1473,22 +1557,35 @@ export default function JadwalShift() {
             </Select>
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogSalin(false)}>Batal</Button>
-          <Button variant="contained" onClick={handleSalin}>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setDialogSalin(false)}
+            variant="outlined"
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
+            Batal
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSalin}
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
             Salin Sekarang
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ════════ DIALOG KONFIRMASI CUTI ════════ */}
+      {/* ════════ DIALOG KONFIRMASI CUTI — bottom sheet di mobile ════════ */}
       <Dialog
         open={dialogKonfirmasi}
         onClose={() => setDialogKonfirmasi(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={false}
+        {...bottomSheetProps}
       >
         <DialogTitle fontWeight="bold">Keterangan & Surat Cuti</DialogTitle>
+        <Divider />
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" mb={2}>
             Terdapat{" "}
@@ -1609,11 +1706,18 @@ export default function JadwalShift() {
             })}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogKonfirmasi(false)}>Batal</Button>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setDialogKonfirmasi(false)}
+            variant="outlined"
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
+            Batal
+          </Button>
           <Button
             variant="contained"
             onClick={handleKonfirmasiSimpan}
+            sx={{ flex: 1, borderRadius: 2 }}
             disabled={
               saving ||
               grupCT.some((g) => !g.keterangan.trim()) ||
@@ -1625,21 +1729,24 @@ export default function JadwalShift() {
         </DialogActions>
       </Dialog>
 
-      {/* ════════ DIALOG EDIT SHIFT ════════ */}
+      {/* ════════ DIALOG EDIT SHIFT — bottom sheet di mobile ════════ */}
       <Dialog
         open={dialogEditShift}
         onClose={() => setDialogEditShift(false)}
         maxWidth="xs"
         fullWidth
+        fullScreen={false}
+        {...bottomSheetProps}
       >
         <DialogTitle fontWeight="bold">
-          Edit Jam Shift — {editShift?.kode}
+          Edit Jam Kerja — {editShift?.kode}
         </DialogTitle>
+        <Divider />
         <DialogContent dividers>
           {editShift && (
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
               <TextField
-                label="Nama Shift"
+                label="Jadwal"
                 size="small"
                 fullWidth
                 value={editShift.nama}
@@ -1653,13 +1760,13 @@ export default function JadwalShift() {
                 size="small"
                 fullWidth
                 value={editShift.jam_masuk}
+                InputLabelProps={{ shrink: true }}
                 onChange={(e) =>
                   setEditShift({ ...editShift, jam_masuk: e.target.value })
                 }
-                InputLabelProps={{ shrink: true }}
                 helperText={
                   ["L", "CT"].includes(editShift.kode)
-                    ? "Shift ini tidak memerlukan jam kerja"
+                    ? "Jadwal Kerja ini tidak memerlukan jam kerja"
                     : "Format HH:MM"
                 }
                 disabled={["L", "CT"].includes(editShift.kode)}
@@ -1670,21 +1777,28 @@ export default function JadwalShift() {
                 size="small"
                 fullWidth
                 value={editShift.jam_pulang}
+                InputLabelProps={{ shrink: true }}
                 onChange={(e) =>
                   setEditShift({ ...editShift, jam_pulang: e.target.value })
                 }
-                InputLabelProps={{ shrink: true }}
                 helperText="Format HH:MM"
                 disabled={["L", "CT"].includes(editShift.kode)}
               />
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogEditShift(false)}>Batal</Button>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setDialogEditShift(false)}
+            variant="outlined"
+            sx={{ flex: 1, borderRadius: 2 }}
+          >
+            Batal
+          </Button>
           <Button
             variant="contained"
             onClick={handleSimpanShift}
+            sx={{ flex: 1, borderRadius: 2 }}
             disabled={["L", "CT"].includes(editShift?.kode)}
           >
             Simpan

@@ -14,6 +14,10 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
 const DRAWER_WIDTH = 240;
 
+// 🔥 State waktu di luar komponen — tidak reset saat pindah halaman
+let sharedTime = new Date();
+let tickStarted = false;
+
 function formatTanggal(date) {
   return date.toLocaleDateString("id-ID", {
     weekday: "long",
@@ -34,29 +38,58 @@ function formatWaktu(date) {
   });
 }
 
+// 🔥 Listeners untuk update semua instance Topbar
+const listeners = new Set();
+
+function notifyListeners() {
+  listeners.forEach((fn) => fn(new Date(sharedTime)));
+}
+
+// 🔥 Mulai tick dan sync — hanya sekali selama aplikasi hidup
+function startSharedClock(apiFetchFn) {
+  if (tickStarted) return;
+  tickStarted = true;
+
+  // Sync pertama
+  const sync = async () => {
+    try {
+      const res = await apiFetchFn("http://localhost:5000/api/time");
+      if (!res || !res.ok) return;
+      const data = await res.json();
+      sharedTime = new Date(data.serverTime);
+      notifyListeners();
+    } catch {
+      // abaikan
+    }
+  };
+
+  sync();
+
+  // Tick lokal setiap 1 detik
+  setInterval(() => {
+    sharedTime = new Date(sharedTime.getTime() + 1000);
+    notifyListeners();
+  }, 1000);
+
+  // Sync server setiap 30 detik
+  setInterval(sync, 30000);
+}
+
 export default function Topbar({ onMenuClick }) {
-  const [time, setTime] = useState(null);
+  const [time, setTime] = useState(sharedTime); // 🔥 pakai sharedTime, bukan new Date()
 
   useEffect(() => {
-    const fetchTime = async () => {
-      try {
-        const res = await apiFetch("http://localhost:5000/api/time");
-        if (!res || !res.ok) return;
+    // Daftarkan listener
+    listeners.add(setTime);
 
-        const data = await res.json();
-        setTime(new Date(data.serverTime));
-      } catch {
-        // abaikan jika server belum siap
-      }
+    // Mulai clock kalau belum jalan
+    startSharedClock(apiFetch);
+
+    return () => {
+      // Unregister saat unmount
+      listeners.delete(setTime);
     };
-
-    fetchTime();
-    const interval = setInterval(fetchTime, 1000);
-
-    return () => clearInterval(interval);
   }, []);
-
-  if (!time) return null;
 
   return (
     <AppBar

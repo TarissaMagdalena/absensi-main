@@ -8,7 +8,7 @@ import {
   absenPulang,
   getTodayAbsensi,
 } from "../controllers/absensiController.js";
-import { processAlpha } from "../services/alphaService.js";
+import { processAlfa } from "../services/AlfaService.js";
 
 const router = express.Router();
 
@@ -44,7 +44,7 @@ router.post("/masuk", absenMasuk);
 // ================= ABSEN PULANG =================
 router.post("/pulang", absenPulang);
 
-// ================= ABSENSI HARI INI (dengan Alpha) =================
+// ================= ABSENSI HARI INI (dengan Alfa) =================
 router.get("/today", getTodayAbsensi);
 
 // ================= ABSENSI HARI INI (per pegawai) =================
@@ -80,23 +80,23 @@ router.get("/hari-ini", async (req, res) => {
   }
 });
 
-// ================= PROSES ALPHA OTOMATIS =================
-router.post("/proses-alpha", async (req, res) => {
+// ================= PROSES Alfa OTOMATIS =================
+router.post("/proses-Alfa", async (req, res) => {
   try {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Jakarta",
     });
-    const result = await processAlpha(today, true, 30);
+    const result = await processAlfa(today, true, 30);
     res.json({
       message:
         result.inserted > 0
-          ? `${result.inserted} pegawai ditandai Alpha`
-          : "Tidak ada Alpha baru hari ini",
+          ? `${result.inserted} pegawai ditandai Alfa`
+          : "Tidak ada Alfa baru hari ini",
       inserted: result.inserted,
       detail: result.detail,
     });
   } catch (err) {
-    console.error("Proses alpha error:", err);
+    console.error("Proses Alfa error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -151,8 +151,8 @@ router.get("/dashboard-summary", async (req, res) => {
       "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ? AND status = 'Terlambat'",
       [tanggal],
     );
-    const [[{ total: alpha }]] = await db.query(
-      "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ? AND status = 'Alpha'",
+    const [[{ total: Alfa }]] = await db.query(
+      "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ? AND status = 'Alfa'",
       [tanggal],
     );
 
@@ -186,7 +186,7 @@ router.get("/dashboard-summary", async (req, res) => {
       totalPegawai,
       hadirHariIni,
       terlambat,
-      alpha,
+      Alfa,
       pegawaiHariIni,
       aktivitas,
     });

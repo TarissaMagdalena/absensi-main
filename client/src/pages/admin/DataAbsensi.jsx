@@ -24,6 +24,11 @@ import {
   Alert,
   Tooltip,
   Divider,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  Stack,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -56,27 +61,206 @@ const formatTanggal = (tgl) =>
     year: "numeric",
   });
 
+// ── Card mobile ───────────────────────────────────────────────────────────────
+function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{ borderRadius: 3, mb: 1.5, "&:hover": { boxShadow: 2 } }}
+    >
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={1}
+        >
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography
+              fontSize={11}
+              sx={{
+                backgroundColor: "#f0f0f0",
+                borderRadius: "50%",
+                width: 22,
+                height: 22,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                color: "#555",
+              }}
+            >
+              {index + 1}
+            </Typography>
+            <Typography fontWeight="bold" fontSize={14}>
+              {item.nama}
+            </Typography>
+          </Box>
+          <Chip
+            label={item.status}
+            color={getStatusColor(item.status)}
+            size="small"
+          />
+        </Box>
+
+        <Typography fontSize={12} color="text.secondary" mb={1}>
+          {formatTanggal(item.tanggal)}
+          {item.shift_kode && (
+            <Box
+              component="span"
+              sx={{ ml: 1, fontWeight: "bold", color: "#333" }}
+            >
+              · Shift {item.shift_kode}
+            </Box>
+          )}
+        </Typography>
+
+        {(item.jam_masuk || item.jam_pulang) && (
+          <Stack direction="row" spacing={1} mb={1} flexWrap="wrap">
+            {item.jam_masuk && (
+              <Chip
+                label={`Masuk: ${item.jam_masuk}`}
+                color={item.status === "Terlambat" ? "warning" : "default"}
+                size="small"
+              />
+            )}
+            {item.status_area && item.jam_masuk && (
+              <Chip
+                label={item.status_area}
+                color={item.status_area === "DALAM" ? "success" : "warning"}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            {item.jam_pulang && (
+              <Chip label={`Pulang: ${item.jam_pulang}`} size="small" />
+            )}
+            {item.status_area_pulang && item.jam_pulang && (
+              <Chip
+                label={item.status_area_pulang}
+                color={
+                  item.status_area_pulang === "DALAM" ? "success" : "warning"
+                }
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Stack>
+        )}
+
+        {(item.keterangan || item.keterangan_pulang) && (
+          <Typography fontSize={12} color="text.secondary" mb={1}>
+            {item.keterangan || item.keterangan_pulang}
+          </Typography>
+        )}
+
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" spacing={0.5}>
+            {item.latitude && item.longitude && (
+              <Tooltip
+                title={`Jarak: ${item.distance ? Math.round(item.distance) + " m" : "-"}`}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    window.open(
+                      `https://www.google.com/maps?q=${item.latitude},${item.longitude}`,
+                      "_blank",
+                    )
+                  }
+                  sx={{
+                    color: item.status_area === "DALAM" ? "#2e7d32" : "#c62828",
+                  }}
+                >
+                  <LocationOnIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {item.surat_mc && (
+              <Tooltip title="Lihat Surat MC">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    window.open(
+                      `http://localhost:5000/uploads/surat_mc/${item.surat_mc}`,
+                      "_blank",
+                    )
+                  }
+                  sx={{ color: "#1565c0" }}
+                >
+                  <AttachFileIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {item.surat_cuti && (
+              <Tooltip title="Lihat Surat Cuti">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    window.open(
+                      `http://localhost:5000/uploads/surat_cuti/${item.surat_cuti}`,
+                      "_blank",
+                    )
+                  }
+                  sx={{ color: "#1565c0" }}
+                >
+                  <AttachFileIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip title="Edit">
+              <IconButton
+                size="small"
+                onClick={() => onEdit(item)}
+                sx={{ color: "#1565c0" }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {isCutiDariJadwal(item) ? (
+              <Tooltip title="Untuk membatalkan cuti, ubah jadwal shift di halaman Jadwal Shift">
+                <IconButton size="small" sx={{ color: "#bbb" }}>
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="Hapus">
+                <IconButton
+                  size="small"
+                  onClick={() => onDelete(item)}
+                  sx={{ color: "#c62828" }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Komponen utama ────────────────────────────────────────────────────────────
 export default function DataAbsensi() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
+
   const [data, setData] = useState([]);
   const [pegawaiList, setPegawaiList] = useState([]);
-
   const [search, setSearch] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [status, setStatus] = useState("");
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-
   const [suratFile, setSuratFile] = useState(null);
   const [suratPreview, setSuratPreview] = useState(null);
-
-  const [deleteDialog, setDeleteDialog] = useState({
-    open: false,
-    item: null,
-  });
-
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -121,7 +305,7 @@ export default function DataAbsensi() {
     (d) => d.status === "Terlambat",
   ).length;
   const totalIzin = filteredData.filter((d) =>
-    ["Izin", "Sakit", "Cuti", "Alpha"].includes(d.status),
+    ["Izin", "Sakit", "Cuti", "Alfa"].includes(d.status),
   ).length;
 
   const isCutiDariJadwal = (item) =>
@@ -154,19 +338,11 @@ export default function DataAbsensi() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setSuratFile(file);
-
     if (file.type.startsWith("image/")) {
-      setSuratPreview({
-        type: "image",
-        url: URL.createObjectURL(file),
-      });
+      setSuratPreview({ type: "image", url: URL.createObjectURL(file) });
     } else {
-      setSuratPreview({
-        type: "pdf",
-        name: file.name,
-      });
+      setSuratPreview({ type: "pdf", name: file.name });
     }
   };
 
@@ -174,16 +350,13 @@ export default function DataAbsensi() {
     if (!form.pegawai_id || !form.tanggal || !form.status) {
       return showSnackbar("Pegawai, tanggal, dan status wajib diisi", "error");
     }
-
     setSaving(true);
-
     try {
       if (editId) {
         await api.put(`/absensi/${editId}`, {
           status: form.status,
           keterangan: form.keterangan,
         });
-
         showSnackbar("Absensi berhasil diperbarui");
       } else {
         const formData = new FormData();
@@ -191,18 +364,12 @@ export default function DataAbsensi() {
         formData.append("tanggal", form.tanggal);
         formData.append("status", form.status);
         formData.append("keterangan", form.keterangan);
-
-        if (suratFile) {
-          formData.append("surat_mc", suratFile);
-        }
-
+        if (suratFile) formData.append("surat_mc", suratFile);
         await api.post("/absensi/manual", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-
         showSnackbar(`Absensi ${form.status} berhasil ditambahkan`);
       }
-
       setDialogOpen(false);
       resetFileState();
       fetchAbsensi();
@@ -227,45 +394,40 @@ export default function DataAbsensi() {
     }
   };
 
+  // 🔥 Props bottom sheet untuk mobile
+  const bottomSheetProps = {
+    PaperProps: {
+      sx: {
+        borderRadius: isSmall ? "20px 20px 0 0" : 3,
+        minWidth: isSmall ? "100%" : undefined,
+        width: isSmall ? "100%" : undefined,
+        margin: 0,
+        position: isSmall ? "fixed" : "relative",
+        bottom: isSmall ? 0 : "auto",
+      },
+    },
+    sx: {
+      "& .MuiDialog-container": {
+        alignItems: isSmall ? "flex-end" : "center",
+      },
+    },
+  };
+
   return (
     <DashboardLayoutAdmin>
-      <Box
-        sx={{
-          width: "100%",
-          maxWidth: "100%",
-          overflowX: "hidden",
-        }}
-      >
+      <Box sx={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
         {/* HEADER */}
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          mb={3}
-          gap={2}
-          flexWrap="wrap"
-        >
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              Data Absensi
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Rekap harian kehadiran seluruh pegawai
-            </Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenTambah}
-            sx={{ borderRadius: 2 }}
-          >
-            Tambah Absensi
-          </Button>
+        <Box mb={3}>
+          <Typography variant="h5" fontWeight="bold">
+            Data Absensi
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Riwayat absensi seluruh pegawai
+          </Typography>
         </Box>
 
-        {/* SUMMARY */}
-        <Box display="flex" gap={2} flexWrap="wrap" mb={2.5}>
+        {/* SUMMARY CARDS */}
+        <Grid container spacing={1.5} mb={2.5}>
           {[
             {
               label: "Tepat Waktu",
@@ -286,41 +448,47 @@ export default function DataAbsensi() {
               bg: "#e3f2fd",
             },
             {
-              label: "Total Data",
+              label: "Total Absensi",
               value: filteredData.length,
               color: "text.primary",
               bg: "#f5f5f5",
             },
           ].map((s) => (
-            <Paper
-              key={s.label}
-              sx={{
-                p: 2,
-                borderRadius: 3,
-                minWidth: 150,
-                backgroundColor: s.bg,
-                flex: 1,
-              }}
-            >
-              <Typography variant="body2" fontWeight="bold" color={s.color}>
-                {s.label}
-              </Typography>
-              <Typography
-                variant="h5"
-                color={s.color}
-                fontWeight="bold"
-                my={0.5}
+            <Grid key={s.label} size={{ xs: 3 }}>
+              <Paper
+                sx={{
+                  p: { xs: 1, sm: 2 },
+                  borderRadius: 3,
+                  backgroundColor: s.bg,
+                  height: "100%",
+                }}
               >
-                {s.value}
-              </Typography>
-            </Paper>
+                <Typography
+                  variant="body2"
+                  fontWeight="bold"
+                  color={s.color}
+                  fontSize={{ xs: 10, sm: 14 }}
+                >
+                  {s.label}
+                </Typography>
+                <Typography
+                  variant="h5"
+                  color={s.color}
+                  fontWeight="bold"
+                  my={0.5}
+                  fontSize={{ xs: 18, sm: 24 }}
+                >
+                  {s.value}
+                </Typography>
+              </Paper>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
 
         {/* FILTER */}
         <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 3.5 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -329,8 +497,7 @@ export default function DataAbsensi() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 6, md: 2.5 }}>
               <TextField
                 select
                 fullWidth
@@ -345,11 +512,10 @@ export default function DataAbsensi() {
                 <MenuItem value="Izin">Izin</MenuItem>
                 <MenuItem value="Sakit">Sakit</MenuItem>
                 <MenuItem value="Cuti">Cuti</MenuItem>
-                <MenuItem value="Alpha">Alpha</MenuItem>
+                <MenuItem value="Alfa">Alfa</MenuItem>
               </TextField>
             </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 6, md: 2.5 }}>
               <TextField
                 type="date"
                 fullWidth
@@ -360,8 +526,7 @@ export default function DataAbsensi() {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-
-            <Grid size={{ xs: 12, md: 2 }}>
+            <Grid size={{ xs: 6, md: 1.5 }}>
               <Button
                 fullWidth
                 variant="outlined"
@@ -376,299 +541,296 @@ export default function DataAbsensi() {
                 Reset
               </Button>
             </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleOpenTambah}
+                sx={{ height: 40, whiteSpace: "nowrap" }}
+              >
+                {isMobile ? "Tambah" : "Tambah Absensi"}
+              </Button>
+            </Grid>
           </Grid>
         </Paper>
 
-        {/* TABEL */}
-        <Paper
-          sx={{
-            borderRadius: 3,
-            overflow: "hidden",
-          }}
-        >
-          <Box
-            sx={{
-              width: "100%",
-              maxWidth: "100%",
-              overflowX: "auto",
-              p: 2,
-              boxSizing: "border-box",
-            }}
-          >
-            <Table
+        {/* KONTEN */}
+        {isMobile ? (
+          <Box>
+            {filteredData.length > 0 ? (
+              filteredData.map((item, index) => (
+                <AbsensiCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onEdit={handleOpenEdit}
+                  onDelete={(item) => setDeleteDialog({ open: true, item })}
+                  isCutiDariJadwal={isCutiDariJadwal}
+                />
+              ))
+            ) : (
+              <Paper sx={{ p: 4, borderRadius: 3, textAlign: "center" }}>
+                <Typography color="text.secondary">
+                  Tidak ada data absensi
+                </Typography>
+              </Paper>
+            )}
+          </Box>
+        ) : (
+          <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
+            <Box
               sx={{
                 width: "100%",
-                tableLayout: "auto",
-
-                "& .MuiTableCell-root": {
-                  fontWeight: 400,
-                  fontSize: 13,
-                  borderBottom: "1px solid #f0f0f0",
-                  py: 1.2,
-                  px: 1.5,
-                  whiteSpace: "nowrap",
-                },
-
-                "& .MuiTableHead-root .MuiTableCell-root": {
-                  fontWeight: 500,
-                  fontSize: 13,
-                  backgroundColor: "#fafafa",
-                  color: "#333",
-                  py: 1.5,
-                },
-
-                "& .MuiChip-root": {
-                  height: 24,
-                  fontSize: 12,
-                },
-
-                "& .MuiIconButton-root": {
-                  padding: "4px",
-                },
+                overflowX: "auto",
+                p: 2,
+                boxSizing: "border-box",
               }}
             >
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 30 }}>No</TableCell>
-                  <TableCell sx={{ width: 100 }}>Nama</TableCell>
-                  <TableCell sx={{ width: 170 }}>Tanggal</TableCell>
-                  <TableCell sx={{ width: 70 }}>Shift</TableCell>
-                  <TableCell sx={{ width: 100 }}>Jam Masuk</TableCell>
-                  <TableCell sx={{ width: 90 }}>Area Masuk</TableCell>
-                  <TableCell sx={{ width: 100 }}>Jam Pulang</TableCell>
-                  <TableCell sx={{ width: 90 }}>Area Pulang</TableCell>
-                  <TableCell sx={{ width: 90 }}>Koordinat</TableCell>
-                  <TableCell sx={{ width: 100 }}>Keterangan</TableCell>
-                  <TableCell sx={{ width: 100 }}>Status</TableCell>
-                  <TableCell sx={{ width: 90 }} align="center">
-                    Aksi
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {filteredData.length > 0 ? (
-                  filteredData.map((item, index) => (
-                    <TableRow
-                      key={item.id}
-                      sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
-                    >
-                      <TableCell>{index + 1}</TableCell>
-
-                      <TableCell>{item.nama}</TableCell>
-
-                      <TableCell>{formatTanggal(item.tanggal)}</TableCell>
-
-                      <TableCell>{item.shift_kode || "-"}</TableCell>
-
-                      <TableCell>
-                        {item.jam_masuk ? (
-                          <Chip
-                            label={item.jam_masuk}
-                            color={
-                              item.status === "Terlambat"
-                                ? "warning"
-                                : "default"
-                            }
-                            size="small"
-                          />
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {item.jam_masuk ? (
-                          <Chip
-                            label={item.status_area || "-"}
-                            color={
-                              item.status_area === "DALAM"
-                                ? "success"
-                                : "warning"
-                            }
-                            size="small"
-                            variant="outlined"
-                          />
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {item.jam_pulang ? (
-                          <Chip label={item.jam_pulang} size="small" />
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {item.jam_pulang ? (
-                          <Chip
-                            label={item.status_area_pulang || "-"}
-                            color={
-                              item.status_area_pulang === "DALAM"
-                                ? "success"
-                                : "warning"
-                            }
-                            size="small"
-                            variant="outlined"
-                          />
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {item.latitude && item.longitude ? (
-                          <Tooltip
-                            title={
-                              `Lat: ${Number(item.latitude).toFixed(6)}, ` +
-                              `Lng: ${Number(item.longitude).toFixed(6)} | ` +
-                              `Jarak: ${
-                                item.distance
-                                  ? Math.round(item.distance) + " m"
-                                  : "-"
-                              }`
-                            }
-                          >
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                window.open(
-                                  `https://www.google.com/maps?q=${item.latitude},${item.longitude}`,
-                                  "_blank",
-                                )
-                              }
-                              sx={{
-                                color:
-                                  item.status_area === "DALAM"
-                                    ? "#2e7d32"
-                                    : "#c62828",
-                              }}
-                            >
-                              <LocationOnIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          fontSize: 13,
-                          color: "text.secondary",
-                          minWidth: 150,
-                          whiteSpace: "normal !important",
-                        }}
+              <Table
+                sx={{
+                  width: "100%",
+                  tableLayout: "auto",
+                  "& .MuiTableCell-root": {
+                    fontWeight: 400,
+                    fontSize: 13,
+                    borderBottom: "1px solid #f0f0f0",
+                    py: 1.2,
+                    px: 1.5,
+                    whiteSpace: "nowrap",
+                  },
+                  "& .MuiTableHead-root .MuiTableCell-root": {
+                    fontWeight: 500,
+                    fontSize: 13,
+                    backgroundColor: "#fafafa",
+                    color: "#333",
+                    py: 1.5,
+                  },
+                  "& .MuiChip-root": { height: 24, fontSize: 12 },
+                  "& .MuiIconButton-root": { padding: "4px" },
+                }}
+              >
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: 30 }}>No</TableCell>
+                    <TableCell sx={{ width: 100 }}>Nama</TableCell>
+                    <TableCell sx={{ width: 170 }}>Tanggal</TableCell>
+                    <TableCell sx={{ width: 70 }}>Jadwal</TableCell>
+                    <TableCell sx={{ width: 100 }}>Jam Masuk</TableCell>
+                    <TableCell sx={{ width: 90 }}>Area Masuk</TableCell>
+                    <TableCell sx={{ width: 100 }}>Jam Pulang</TableCell>
+                    <TableCell sx={{ width: 90 }}>Area Pulang</TableCell>
+                    <TableCell sx={{ width: 90 }}>Koordinat</TableCell>
+                    <TableCell sx={{ width: 100 }}>Keterangan</TableCell>
+                    <TableCell sx={{ width: 100 }}>Status</TableCell>
+                    <TableCell sx={{ width: 90 }} align="center">
+                      Aksi
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredData.length > 0 ? (
+                    filteredData.map((item, index) => (
+                      <TableRow
+                        key={item.id}
+                        sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
                       >
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          gap={0.5}
-                          flexWrap="wrap"
-                        >
-                          <span>
-                            {item.keterangan || item.keterangan_pulang || "-"}
-                          </span>
-
-                          {item.surat_mc && (
-                            <Tooltip title="Lihat Surat MC">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  window.open(
-                                    `http://localhost:5000/uploads/surat_mc/${item.surat_mc}`,
-                                    "_blank",
-                                  )
-                                }
-                                sx={{ color: "#1565c0" }}
-                              >
-                                <AttachFileIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-
-                          {item.surat_cuti && (
-                            <Tooltip title="Lihat Surat Cuti">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  window.open(
-                                    `http://localhost:5000/uploads/surat_cuti/${item.surat_cuti}`,
-                                    "_blank",
-                                  )
-                                }
-                                sx={{ color: "#1565c0" }}
-                              >
-                                <AttachFileIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-
-                      <TableCell>
-                        <Chip
-                          label={item.status}
-                          color={getStatusColor(item.status)}
-                          size="small"
-                        />
-                      </TableCell>
-
-                      <TableCell align="center">
-                        <Box display="flex" gap={0.5} justifyContent="center">
-                          <Tooltip title="Edit">
-                            <IconButton
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{item.nama}</TableCell>
+                        <TableCell>{formatTanggal(item.tanggal)}</TableCell>
+                        <TableCell>{item.shift_kode || "-"}</TableCell>
+                        <TableCell>
+                          {item.jam_masuk ? (
+                            <Chip
+                              label={item.jam_masuk}
+                              color={
+                                item.status === "Terlambat"
+                                  ? "warning"
+                                  : "default"
+                              }
                               size="small"
-                              onClick={() => handleOpenEdit(item)}
-                              sx={{ color: "#1565c0" }}
+                            />
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.jam_masuk ? (
+                            <Chip
+                              label={item.status_area || "-"}
+                              color={
+                                item.status_area === "DALAM"
+                                  ? "success"
+                                  : "warning"
+                              }
+                              size="small"
+                              variant="outlined"
+                            />
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.jam_pulang ? (
+                            <Chip label={item.jam_pulang} size="small" />
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.jam_pulang ? (
+                            <Chip
+                              label={item.status_area_pulang || "-"}
+                              color={
+                                item.status_area_pulang === "DALAM"
+                                  ? "success"
+                                  : "warning"
+                              }
+                              size="small"
+                              variant="outlined"
+                            />
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.latitude && item.longitude ? (
+                            <Tooltip
+                              title={`Lat: ${Number(item.latitude).toFixed(6)}, Lng: ${Number(item.longitude).toFixed(6)} | Jarak: ${item.distance ? Math.round(item.distance) + " m" : "-"}`}
                             >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {isCutiDariJadwal(item) ? (
-                            <Tooltip title="Untuk membatalkan cuti, ubah jadwal shift di halaman Jadwal Shift">
-                              <IconButton size="small" sx={{ color: "#bbb" }}>
-                                <InfoOutlinedIcon fontSize="small" />
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  window.open(
+                                    `https://www.google.com/maps?q=${item.latitude},${item.longitude}`,
+                                    "_blank",
+                                  )
+                                }
+                                sx={{
+                                  color:
+                                    item.status_area === "DALAM"
+                                      ? "#2e7d32"
+                                      : "#c62828",
+                                }}
+                              >
+                                <LocationOnIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           ) : (
-                            <Tooltip title="Hapus">
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            fontSize: 13,
+                            color: "text.secondary",
+                            minWidth: 150,
+                            whiteSpace: "normal !important",
+                          }}
+                        >
+                          <Box
+                            display="flex"
+                            alignItems="center"
+                            gap={0.5}
+                            flexWrap="wrap"
+                          >
+                            <span>
+                              {item.keterangan || item.keterangan_pulang || "-"}
+                            </span>
+                            {item.surat_mc && (
+                              <Tooltip title="Lihat Surat MC">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    window.open(
+                                      `http://localhost:5000/uploads/surat_mc/${item.surat_mc}`,
+                                      "_blank",
+                                    )
+                                  }
+                                  sx={{ color: "#1565c0" }}
+                                >
+                                  <AttachFileIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {item.surat_cuti && (
+                              <Tooltip title="Lihat Surat Cuti">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    window.open(
+                                      `http://localhost:5000/uploads/surat_cuti/${item.surat_cuti}`,
+                                      "_blank",
+                                    )
+                                  }
+                                  sx={{ color: "#1565c0" }}
+                                >
+                                  <AttachFileIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.status}
+                            color={getStatusColor(item.status)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box display="flex" gap={0.5} justifyContent="center">
+                            <Tooltip title="Edit">
                               <IconButton
                                 size="small"
-                                onClick={() =>
-                                  setDeleteDialog({ open: true, item })
-                                }
-                                sx={{ color: "#c62828" }}
+                                onClick={() => handleOpenEdit(item)}
+                                sx={{ color: "#1565c0" }}
                               >
-                                <DeleteIcon fontSize="small" />
+                                <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                          )}
-                        </Box>
+                            {isCutiDariJadwal(item) ? (
+                              <Tooltip title="Untuk membatalkan cuti, ubah jadwal shift di halaman Jadwal Shift">
+                                <IconButton size="small" sx={{ color: "#bbb" }}>
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip title="Hapus">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    setDeleteDialog({ open: true, item })
+                                  }
+                                  sx={{ color: "#c62828" }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={12}
+                        align="center"
+                        sx={{ py: 4, color: "text.secondary" }}
+                      >
+                        Tidak ada data absensi
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={12}
-                      align="center"
-                      sx={{ py: 4, color: "text.secondary" }}
-                    >
-                      Tidak ada data absensi
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          </Paper>
+        )}
 
-        {/* DIALOG TAMBAH / EDIT */}
+        {/* ── DIALOG TAMBAH / EDIT ── */}
         <Dialog
           open={dialogOpen}
           onClose={() => {
@@ -677,11 +839,13 @@ export default function DataAbsensi() {
           }}
           maxWidth="sm"
           fullWidth
+          fullScreen={false}
+          {...bottomSheetProps} // 🔥 bottom sheet di mobile
         >
           <DialogTitle fontWeight="bold">
-            {editId ? "Edit Absensi" : "Tambah Absensi Manual"}
+            {editId ? "Edit Absensi" : "Tambah Absensi"}
           </DialogTitle>
-
+          <Divider />
           <DialogContent dividers>
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
               {!editId ? (
@@ -784,12 +948,10 @@ export default function DataAbsensi() {
               {form.status === "Sakit" && !editId && (
                 <>
                   <Divider />
-
                   <Box>
                     <Typography fontSize={14} fontWeight="bold" mb={1}>
-                      Surat MC / Bukti Sakit
+                      Surat Keterangan Sakit / Bukti Sakit
                     </Typography>
-
                     {!suratPreview ? (
                       <Button
                         component="label"
@@ -806,7 +968,7 @@ export default function DataAbsensi() {
                           },
                         }}
                       >
-                        Klik untuk upload surat MC (JPG/PNG/PDF)
+                        Klik untuk unggah bukti sakit (JPG/PNG/PDF)
                         <input
                           type="file"
                           accept="image/*,.pdf"
@@ -841,7 +1003,6 @@ export default function DataAbsensi() {
                             </Typography>
                           </Box>
                         )}
-
                         <Button
                           size="small"
                           color="error"
@@ -855,22 +1016,22 @@ export default function DataAbsensi() {
                         </Button>
                       </Box>
                     )}
-
                     <Typography fontSize={11} color="text.secondary" mt={0.5}>
-                      Opsional, namun sangat disarankan sebagai bukti
+                      Opsional, namun sangat disarankan sebagai bukti pendukung
                     </Typography>
                   </Box>
                 </>
               )}
             </Box>
           </DialogContent>
-
-          <DialogActions>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
             <Button
               onClick={() => {
                 setDialogOpen(false);
                 resetFileState();
               }}
+              variant="outlined"
+              sx={{ flex: 1, borderRadius: 2 }}
             >
               Batal
             </Button>
@@ -878,22 +1039,25 @@ export default function DataAbsensi() {
               variant="contained"
               onClick={handleSimpan}
               disabled={saving}
+              sx={{ flex: 1, borderRadius: 2 }}
             >
               {saving ? "Menyimpan..." : editId ? "Simpan Perubahan" : "Tambah"}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* DIALOG HAPUS */}
+        {/* ── DIALOG HAPUS ── */}
         <Dialog
           open={deleteDialog.open}
           onClose={() => setDeleteDialog({ open: false, item: null })}
           maxWidth="xs"
           fullWidth
+          fullScreen={false}
+          {...bottomSheetProps} // 🔥 bottom sheet di mobile
         >
           <DialogTitle fontWeight="bold">Hapus Absensi</DialogTitle>
-
-          <DialogContent>
+          <Divider />
+          <DialogContent sx={{ pt: 2 }}>
             <Typography>
               Hapus absensi <strong>{deleteDialog.item?.nama}</strong> pada{" "}
               <strong>
@@ -903,19 +1067,24 @@ export default function DataAbsensi() {
               </strong>
               ?
             </Typography>
-
             <Typography variant="body2" color="error" mt={1}>
               Tindakan ini tidak bisa dibatalkan.
             </Typography>
           </DialogContent>
-
-          <DialogActions>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
             <Button
               onClick={() => setDeleteDialog({ open: false, item: null })}
+              variant="outlined"
+              sx={{ flex: 1, borderRadius: 2 }}
             >
               Batal
             </Button>
-            <Button variant="contained" color="error" onClick={handleHapus}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleHapus}
+              sx={{ flex: 1, borderRadius: 2 }}
+            >
               Hapus
             </Button>
           </DialogActions>
