@@ -62,16 +62,25 @@ router.get("/hari-ini", async (req, res) => {
 
     if (absensi.length > 0) {
       const row = absensi[0];
-      if (["Izin", "Sakit", "Cuti"].includes(row.tipe)) {
+      const isManualAdmin = row.keterangan?.startsWith(
+        "Diabsensi manual oleh admin",
+      );
+
+      if (["Izin", "Sakit", "Cuti"].includes(row.tipe || row.status)) {
         return res.json({
           jam_masuk: row.jam_masuk,
-          status: row.tipe,
+          status: row.tipe || row.status,
           status_area: null,
           jam_pulang: null,
+          keterangan: row.keterangan,
           is_pengajuan: false,
         });
       }
-      return res.json(row);
+
+      return res.json({
+        ...row,
+        is_manual_admin: isManualAdmin,
+      });
     }
 
     return res.json(null);
@@ -104,7 +113,16 @@ router.post("/proses-Alfa", async (req, res) => {
 // ================= GET ALL ABSENSI =================
 router.get("/", async (req, res) => {
   try {
-    const [data] = await db.query(`
+    const { bulan } = req.query;
+
+    const bulanFilter =
+      bulan ||
+      new Date()
+        .toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+        .slice(0, 7); // YYYY-MM
+
+    const [data] = await db.query(
+      `
       SELECT 
         a.id,
         a.pegawai_id,
@@ -117,16 +135,23 @@ router.get("/", async (req, res) => {
         a.latitude,
         a.longitude,
         a.distance,
+        a.accuracy,
         a.status_area,
         a.status_area_pulang,
         a.keterangan,
         a.keterangan_pulang,
         a.surat_mc,
-        a.is_from_jadwal
+        a.surat_cuti,
+        a.is_from_jadwal,
+        a.is_suspicious
       FROM absensi a
       JOIN pegawai p ON a.pegawai_id = p.id
+      WHERE DATE_FORMAT(a.tanggal, '%Y-%m') = ?
       ORDER BY a.tanggal DESC, a.jam_masuk DESC
-    `);
+      `,
+      [bulanFilter],
+    );
+
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -234,8 +259,10 @@ router.get("/rekapan/:pegawai_id", async (req, res) => {
 // ================= TAMBAH ABSENSI MANUAL (admin) =================
 // upload.single("surat_mc") → handle multipart/form-data dari frontend
 router.post("/manual", upload.single("surat_mc"), async (req, res) => {
-  const { pegawai_id, tanggal, status, keterangan, potong_cuti } = req.body;
+  const { pegawai_id, tanggal, status, keterangan, potong_cuti, shift_kode } =
+    req.body;
   const surat_mc = req.file ? req.file.filename : null;
+  const keteranganFinal = keterangan || null;
 
   if (!pegawai_id || !tanggal || !status) {
     if (req.file) fs.unlinkSync(req.file.path);
@@ -244,7 +271,7 @@ router.post("/manual", upload.single("surat_mc"), async (req, res) => {
       .json({ message: "pegawai_id, tanggal, dan status wajib diisi" });
   }
 
-  const statusValid = ["Izin", "Sakit", "Cuti"];
+  const statusValid = ["Izin", "Sakit", "Cuti", "Hadir"];
   if (!statusValid.includes(status)) {
     if (req.file) fs.unlinkSync(req.file.path);
     return res
@@ -269,12 +296,35 @@ router.post("/manual", upload.single("surat_mc"), async (req, res) => {
       });
     }
 
-    await conn.query(
-      `INSERT INTO absensi (pegawai_id, tanggal, status, keterangan, surat_mc, is_from_jadwal)
-       VALUES (?, ?, ?, ?, ?, 0)`,
-      [pegawai_id, tanggal, status, keterangan || null, surat_mc],
-    );
+    let jam_masuk_manual = null;
+    if (status === "Hadir") {
+      const { getWIBTime, formatWIB } = await import("../utils/getTime.js");
+      try {
+        const realTime = await getWIBTime();
+        jam_masuk_manual = formatWIB(realTime).now;
+      } catch {
+        jam_masuk_manual = new Date().toLocaleTimeString("en-GB", {
+          hour12: false,
+          timeZone: "Asia/Jakarta",
+        });
+      }
+    }
 
+    await conn.query(
+      `INSERT INTO absensi 
+   (pegawai_id, tanggal, jam_masuk, status, keterangan, surat_mc, is_from_jadwal, shift_kode, tipe)
+   VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      [
+        pegawai_id,
+        tanggal,
+        jam_masuk_manual, // ← tambah jam_masuk
+        status,
+        keteranganFinal || null,
+        surat_mc,
+        shift_kode || null,
+        status === "Hadir" ? "Hadir" : status, // ← tambah tipe
+      ],
+    );
     if (status === "Cuti" && potong_cuti) {
       const tahun = tanggal.substring(0, 4);
       const [upd] = await conn.query(

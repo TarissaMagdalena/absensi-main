@@ -39,7 +39,7 @@ const SHIFT_TIDAK_ABSEN = ["L", "CT"];
 
 export default function Dashboard() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // < 600px
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const user = (() => {
     try {
@@ -49,21 +49,23 @@ export default function Dashboard() {
     }
   })();
 
+  // ── State absensi ──────────────────────────────────────────────────────────
   const [absenMasuk, setAbsenMasuk] = useState(null);
   const [statusMasuk, setStatusMasuk] = useState("Belum Absen");
   const [absenPulang, setAbsenPulang] = useState(null);
   const [statusPulang, setStatusPulang] = useState("Belum Absen");
 
+  // ── State modal ────────────────────────────────────────────────────────────
   const [showModalMasuk, setShowModalMasuk] = useState(false);
   const [showModalPulang, setShowModalPulang] = useState(false);
   const [loadingMasuk, setLoadingMasuk] = useState(false);
   const [loadingPulang, setLoadingPulang] = useState(false);
 
+  // ── State lainnya ──────────────────────────────────────────────────────────
   const [lokasi, setLokasi] = useState(null);
   const [aktivitas, setAktivitas] = useState([]);
   const [jadwalHariIni, setJadwalHariIni] = useState(null);
   const [loadingJadwal, setLoadingJadwal] = useState(true);
-
   const [notif, setNotif] = useState({
     open: false,
     message: "",
@@ -85,7 +87,7 @@ export default function Dashboard() {
   });
   const pegawaiId = user?.pegawai_id;
 
-  // ── Fetch jadwal ───────────────────────────────────────────────────────────
+  // ── Fetch jadwal hari ini ──────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     setLoadingJadwal(true);
@@ -98,7 +100,7 @@ export default function Dashboard() {
       .finally(() => setLoadingJadwal(false));
   }, [pegawaiId, todayStr]);
 
-  // ── Fetch absensi hari ini ──────────────────────────────────────────────────
+  // ── Fetch absensi hari ini ─────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     apiFetch(
@@ -107,39 +109,65 @@ export default function Dashboard() {
       .then((res) => res.json())
       .then((data) => {
         if (!data) return;
+
+        // ── Absen masuk ──────────────────────────────────────────────────────
         if (data.jam_masuk) {
           setAbsenMasuk(data.jam_masuk);
           setStatusMasuk(data.status);
+
+          // 🔥 Keterangan berbeda jika diabsensi manual oleh admin
+          const keterangan = data.is_manual_admin
+            ? "Diabsensi manual oleh admin"
+            : data.keterangan ||
+              (data.status_area === "DALAM"
+                ? "Dalam Area Kantor"
+                : "Di Luar Area Kantor");
+
           setAktivitas((prev) => {
             if (prev.find((a) => a.tipe === "masuk")) return prev;
             return [
               {
                 id: "masuk-db",
                 tipe: "masuk",
-                label: "Absen Masuk",
+                label: data.is_manual_admin
+                  ? "Absensi Manual (Admin)"
+                  : "Absen Masuk",
                 jam: data.jam_masuk,
                 status: data.status,
-                keterangan: data.keterangan,
-                area: data.status_area,
+                keterangan,
+                area: data.is_manual_admin ? null : data.status_area,
+                is_manual_admin: data.is_manual_admin,
               },
               ...prev,
             ];
           });
         }
+
+        // ── Absen pulang ─────────────────────────────────────────────────────
         if (data.jam_pulang) {
           setAbsenPulang(data.jam_pulang);
           setStatusPulang("Selesai");
+
+          const keteranganPulang = data.is_manual_admin
+            ? "Diabsensi manual oleh admin"
+            : data.keterangan_pulang || "Jam pulang tercatat";
+
           setAktivitas((prev) => {
             if (prev.find((a) => a.tipe === "pulang")) return prev;
             return [
               {
                 id: "pulang-db",
                 tipe: "pulang",
-                label: "Absen Pulang",
+                label: data.is_manual_admin
+                  ? "Absensi Manual (Admin)"
+                  : "Absen Pulang",
                 jam: data.jam_pulang,
                 status: "Selesai",
-                keterangan: data.keterangan_pulang || "Jam pulang tercatat",
-                area: data.status_area_pulang || null,
+                keterangan: keteranganPulang,
+                area: data.is_manual_admin
+                  ? null
+                  : data.status_area_pulang || null,
+                is_manual_admin: data.is_manual_admin,
               },
               ...prev,
             ];
@@ -160,7 +188,6 @@ export default function Dashboard() {
       });
       return;
     }
-
     setLoadingMasuk(true);
     try {
       const res = await apiFetch("http://localhost:5000/api/absensi/masuk", {
@@ -179,7 +206,6 @@ export default function Dashboard() {
         setShowModalMasuk(false);
         return;
       }
-
       const jamMasuk =
         data.jam_masuk ||
         new Date().toLocaleTimeString("en-GB", {
@@ -199,6 +225,7 @@ export default function Dashboard() {
           status: statusBaru,
           keterangan: data.keterangan,
           area: data.dalam_area ? "DALAM" : "LUAR",
+          is_manual_admin: false,
         },
         ...prev,
       ]);
@@ -266,7 +293,6 @@ export default function Dashboard() {
       });
       return;
     }
-
     setLoadingPulang(true);
     try {
       const res = await apiFetch("http://localhost:5000/api/absensi/pulang", {
@@ -285,7 +311,6 @@ export default function Dashboard() {
         setShowModalPulang(false);
         return;
       }
-
       const jamPulang =
         data.jam_pulang ||
         new Date().toLocaleTimeString("en-GB", {
@@ -306,6 +331,7 @@ export default function Dashboard() {
           status: "Selesai",
           keterangan: keteranganPulang,
           area: data.status_area,
+          is_manual_admin: false,
         },
         ...prev,
       ]);
@@ -404,7 +430,7 @@ export default function Dashboard() {
     const waktuInfo = absenMasuk
       ? "Sudah absen masuk"
       : selisihMenit > 0
-        ? `Mulai dalam ${selisihMenit} menit` // disingkat agar muat di mobile
+        ? `Mulai dalam ${selisihMenit} menit`
         : selisihMenit > -30
           ? "Sedang berlangsung"
           : "Sudah melewati jam masuk";
@@ -417,7 +443,6 @@ export default function Dashboard() {
             Jadwal Kerja Hari Ini
           </Typography>
         </Box>
-
         <Box
           sx={{
             p: 1.5,
@@ -430,7 +455,6 @@ export default function Dashboard() {
             gap: 1.5,
           }}
         >
-          {/* Badge kode shift */}
           <Box
             sx={{
               px: 1.5,
@@ -447,8 +471,6 @@ export default function Dashboard() {
           >
             {kode}
           </Box>
-
-          {/* Nama shift + jam — flex:1 agar mendorong chip ke kanan */}
           <Box flex={1}>
             <Typography fontWeight="bold" fontSize={14} color={c.color}>
               {jadwalHariIni.nama || kode}
@@ -462,10 +484,6 @@ export default function Dashboard() {
               </Typography>
             </Box>
           </Box>
-
-          {/* Chip status:
-              - Desktop (sm+): sejajar kanan dalam satu baris
-              - Mobile (xs)  : turun ke bawah otomatis karena flexDirection column */}
           <Chip
             label={waktuInfo}
             size="small"
@@ -487,6 +505,27 @@ export default function Dashboard() {
   const shiftButuhAbsen =
     jadwalHariIni && !SHIFT_TIDAK_ABSEN.includes(jadwalHariIni.shift_kode);
 
+  // ── Dialog props mobile (bottom sheet) ────────────────────────────────────
+  const bottomSheetProps = {
+    PaperProps: {
+      sx: {
+        borderRadius: isMobile ? "20px 20px 0 0" : 3,
+        minWidth: isMobile ? "100%" : 320,
+        maxWidth: isMobile ? "100%" : 440,
+        width: isMobile ? "100%" : undefined,
+        margin: 0,
+        position: isMobile ? "fixed" : "relative",
+        bottom: isMobile ? 0 : "auto",
+      },
+    },
+    sx: {
+      "& .MuiDialog-container": {
+        alignItems: isMobile ? "flex-end" : "center",
+      },
+    },
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutPegawai>
       <Box>
@@ -495,17 +534,54 @@ export default function Dashboard() {
         </Typography>
 
         <Box display="flex" flexDirection="column" gap={3}>
-          {/* Kartu jadwal */}
+          {/* ── Kartu jadwal ── */}
           {renderKartuJadwal()}
 
-          {/* Peta */}
+          {/* ── Peta lokasi ── */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
             <MapAbsensi onLocation={setLokasi} />
+
+            {/* Peringatan akurasi terlalu sempurna (kemungkinan fake GPS) */}
+            {lokasi && lokasi.accuracy < 5 && (
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1.5,
+                  borderRadius: 2,
+                  backgroundColor: "#fff3e0",
+                  border: "1px solid #ffcc02",
+                }}
+              >
+                <Typography fontSize={12} color="#e65100">
+                  ⚠️ Akurasi GPS terdeteksi terlalu sempurna (±
+                  {Math.round(lokasi.accuracy)}m). Pastikan kamu tidak
+                  menggunakan aplikasi pemalsuan lokasi.
+                </Typography>
+              </Box>
+            )}
+
+            {/* Peringatan akurasi terlalu buruk */}
+            {lokasi && lokasi.accuracy > 150 && (
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1.5,
+                  borderRadius: 2,
+                  backgroundColor: "#ffebee",
+                  border: "1px solid #ef9a9a",
+                }}
+              >
+                <Typography fontSize={12} color="#c62828">
+                  ⚠️ Akurasi GPS rendah (±{Math.round(lokasi.accuracy)}m).
+                  Pindah ke area terbuka untuk sinyal GPS lebih baik.
+                </Typography>
+              </Box>
+            )}
           </Paper>
 
-          {/* Tombol absen masuk & pulang */}
+          {/* ── Tombol absen masuk & pulang ── */}
           <Box display="flex" gap={2}>
-            {/* ── ABSEN MASUK ── */}
+            {/* ABSEN MASUK */}
             <Paper
               onClick={() => {
                 if (!shiftButuhAbsen) {
@@ -523,10 +599,16 @@ export default function Dashboard() {
                   return;
                 }
                 if (statusMasuk !== "Belum Absen") {
+                  // 🔥 Pesan berbeda jika sudah diabsensi manual oleh admin
+                  const isManual = aktivitas.find(
+                    (a) => a.tipe === "masuk" && a.is_manual_admin,
+                  );
                   setNotif({
                     open: true,
-                    message: "Anda sudah absen hari ini",
                     severity: "info",
+                    message: isManual
+                      ? "Absensi hari ini telah dicatat oleh admin"
+                      : "Anda sudah absen hari ini",
                   });
                   return;
                 }
@@ -544,7 +626,6 @@ export default function Dashboard() {
                     : "not-allowed",
                 opacity:
                   statusMasuk === "Belum Absen" && shiftButuhAbsen ? 1 : 0.6,
-                // Pastikan konten tidak overflow di mobile
                 minWidth: 0,
                 overflow: "hidden",
               }}
@@ -574,7 +655,7 @@ export default function Dashboard() {
               )}
             </Paper>
 
-            {/* ── ABSEN PULANG ── */}
+            {/* ABSEN PULANG */}
             <Paper
               onClick={() => {
                 if (!bolehAbsenPulang || absenPulang) return;
@@ -624,7 +705,7 @@ export default function Dashboard() {
             </Paper>
           </Box>
 
-          {/* Aktivitas hari ini */}
+          {/* ── Aktivitas hari ini ── */}
           <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Typography fontWeight="bold" mb={1}>
               Aktivitas Hari Ini
@@ -666,6 +747,7 @@ export default function Dashboard() {
                       ) : (
                         <LogoutIcon sx={{ color: "#c62828", flexShrink: 0 }} />
                       )}
+
                       <Box flex={1} minWidth={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.label}
@@ -677,14 +759,40 @@ export default function Dashboard() {
                         >
                           {item.keterangan}
                         </Typography>
-                        {item.area && (
+
+                        {/* Info area — hanya tampil jika bukan manual admin */}
+                        {item.area && !item.is_manual_admin && (
                           <Typography fontSize={12} color="text.secondary">
                             {item.area === "DALAM"
                               ? "Dalam Area Kantor"
                               : "Di Luar Area Kantor"}
                           </Typography>
                         )}
+
+                        {/* 🔥 Badge khusus absensi manual admin */}
+                        {item.is_manual_admin && (
+                          <Box
+                            sx={{
+                              mt: 0.5,
+                              px: 1,
+                              py: 0.3,
+                              borderRadius: 1,
+                              backgroundColor: "#fff3e0",
+                              border: "1px solid #ffe082",
+                              display: "inline-block",
+                            }}
+                          >
+                            <Typography
+                              fontSize={11}
+                              color="#f57f17"
+                              fontWeight="bold"
+                            >
+                              ⚙️ Dicatat oleh admin
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
+
                       <Box textAlign="right" flexShrink={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.jam}
@@ -717,22 +825,7 @@ export default function Dashboard() {
           open={showModalMasuk}
           onClose={() => !loadingMasuk && setShowModalMasuk(false)}
           fullScreen={false}
-          PaperProps={{
-            sx: {
-              borderRadius: isMobile ? "20px 20px 0 0" : 3,
-              minWidth: isMobile ? "100%" : 320,
-              maxWidth: isMobile ? "100%" : 440,
-              width: isMobile ? "100%" : undefined,
-              margin: 0,
-              position: isMobile ? "fixed" : "relative",
-              bottom: isMobile ? 0 : "auto",
-            },
-          }}
-          sx={{
-            "& .MuiDialog-container": {
-              alignItems: isMobile ? "flex-end" : "center",
-            },
-          }}
+          {...bottomSheetProps}
         >
           <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
             📋 Konfirmasi Absen Masuk
@@ -777,20 +870,6 @@ export default function Dashboard() {
             <Typography fontSize={13} color="text.secondary">
               Apakah kamu yakin ingin melakukan absen masuk sekarang?
             </Typography>
-            {lokasi && (
-              <Box
-                sx={{
-                  mt: 1.5,
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: "#e3f2fd",
-                }}
-              >
-                <Typography fontSize={12} color="#1565c0">
-                  📍 Akurasi GPS: ±{Math.round(lokasi.accuracy)} meter
-                </Typography>
-              </Box>
-            )}
           </DialogContent>
           <Divider />
           <DialogActions sx={{ p: 2, gap: 1 }}>
@@ -818,22 +897,7 @@ export default function Dashboard() {
           open={showModalPulang}
           onClose={() => !loadingPulang && setShowModalPulang(false)}
           fullScreen={false}
-          PaperProps={{
-            sx: {
-              borderRadius: isMobile ? "20px 20px 0 0" : 3,
-              minWidth: isMobile ? "100%" : 320,
-              maxWidth: isMobile ? "100%" : 440,
-              width: isMobile ? "100%" : undefined,
-              margin: 0,
-              position: isMobile ? "fixed" : "relative",
-              bottom: isMobile ? 0 : "auto",
-            },
-          }}
-          sx={{
-            "& .MuiDialog-container": {
-              alignItems: isMobile ? "flex-end" : "center",
-            },
-          }}
+          {...bottomSheetProps}
         >
           <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
             🏠 Konfirmasi Absen Pulang
@@ -854,20 +918,6 @@ export default function Dashboard() {
               >
                 <Typography fontSize={12} color="#880e4f">
                   🕐 Jadwal pulang: {jadwalHariIni.jam_pulang.slice(0, 5)} WIB
-                </Typography>
-              </Box>
-            )}
-            {lokasi && (
-              <Box
-                sx={{
-                  mt: 1,
-                  p: 1.5,
-                  borderRadius: 2,
-                  backgroundColor: "#e3f2fd",
-                }}
-              >
-                <Typography fontSize={12} color="#1565c0">
-                  📍 Akurasi GPS: ±{Math.round(lokasi.accuracy)} meter
                 </Typography>
               </Box>
             )}
@@ -894,7 +944,7 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* Notifikasi */}
+        {/* ── Notifikasi ── */}
         <Snackbar
           open={notif.open}
           autoHideDuration={3000}

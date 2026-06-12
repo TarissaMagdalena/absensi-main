@@ -2,10 +2,10 @@ import { db } from "../db.js";
 import { getWIBTime, formatWIB } from "../utils/getTime.js";
 
 // ── Konstanta ─────────────────────────────────────────────────────────────────
-// const OFFICE_LAT = 1.1168748359584304;
-// const OFFICE_LNG = 104.09293169994906;
-const OFFICE_LAT = 1.1198625933680553;
-const OFFICE_LNG = 104.11315981359179;
+const OFFICE_LAT = 1.1168748359584304;
+const OFFICE_LNG = 104.09293169994906;
+// const OFFICE_LAT = 1.1198625933680553;
+// const OFFICE_LNG = 104.11315981359179;
 const MAX_RADIUS = 100; // meter — radius area absen yang diizinkan
 const BATAS_AWAL_MENIT = 120; // menit — berapa lama sebelum shift absen boleh dibuka
 
@@ -131,6 +131,16 @@ export const absenMasuk = async (req, res) => {
   try {
     const { pegawai_id, lat, lng, accuracy } = req.body;
 
+    // ── Validasi akurasi GPS ──────────────────────────────────────────────────
+    if (accuracy && accuracy > 150) {
+      return res.status(400).json({
+        message: `Akurasi GPS terlalu rendah (±${Math.round(accuracy)}m). Pindah ke tempat dengan sinyal GPS lebih baik dan coba lagi.`,
+      });
+    }
+
+    // Tandai suspicious jika akurasi terlalu sempurna (< 5m = kemungkinan fake GPS)
+    const isSuspicious = accuracy !== null && accuracy < 5;
+
     if (!pegawai_id) {
       return res.status(400).json({ message: "pegawai_id tidak ditemukan" });
     }
@@ -203,11 +213,19 @@ export const absenMasuk = async (req, res) => {
       status_area = distance <= MAX_RADIUS ? "DALAM" : "LUAR";
     }
 
+    // Blokir absen jika di luar area kantor
+    if (status_area === "LUAR") {
+      return res.status(400).json({
+        message: `Kamu berada di luar area kantor (${distance} m). Absensi hanya dapat dilakukan di dalam area kantor BMKG Batam.`,
+      });
+    }
+
     // ── Simpan ke database ────────────────────────────────────────────────
     await db.query(
       `INSERT INTO absensi 
-       (pegawai_id, tanggal, jam_masuk, status, latitude, longitude, accuracy, distance, status_area, tipe, shift_kode, keterangan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+   (pegawai_id, tanggal, jam_masuk, status, latitude, longitude, 
+    accuracy, distance, status_area, tipe, shift_kode, keterangan, is_suspicious)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         pegawai_id,
         today,
@@ -221,6 +239,7 @@ export const absenMasuk = async (req, res) => {
         "Hadir",
         shift_kode,
         keterangan,
+        isSuspicious ? 1 : 0, // ← tambah ini
       ],
     );
 
@@ -290,6 +309,13 @@ export const absenPulang = async (req, res) => {
       getDistance(lat, lng, OFFICE_LAT, OFFICE_LNG),
     );
     const status_area_pulang = distance_pulang <= MAX_RADIUS ? "DALAM" : "LUAR";
+
+    // Blokir absen pulang jika di luar area kantor
+    if (status_area_pulang === "LUAR") {
+      return res.status(400).json({
+        message: `Kamu berada di luar area kantor (${distance_pulang} m). Absensi pulang hanya dapat dilakukan di dalam area kantor BMKG Batam.`,
+      });
+    }
 
     // ── Hitung keterangan pulang (lembur/tepat waktu/lebih awal) ─────────
     let keterangan_pulang = "Jam pulang tercatat";

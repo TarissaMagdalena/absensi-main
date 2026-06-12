@@ -4,10 +4,10 @@ import L from "leaflet";
 
 // ── Koordinat & konfigurasi kantor ───────────────────────────────────────────
 const OFFICE = {
-  // lat: 1.1168748359584304,
-  // lng: 104.09293169994906,
-  lat: 1.1198625933680553,
-  lng: 104.11315981359179,
+  lat: 1.1168748359584304,
+  lng: 104.09293169994906,
+  // lat: 1.1198625933680553,
+  // lng: 104.11315981359179,
 };
 const RADIUS_METER = 100; // radius area absensi yang diizinkan (meter)
 
@@ -79,7 +79,7 @@ export default function MapAbsensi({ onLocation }) {
       sx={{
         borderRadius: 3,
         overflow: "hidden",
-        mb: 2,
+        mb: 1,
         border: "1px solid #e0e0e0",
       }}
     >
@@ -100,7 +100,7 @@ export default function MapAbsensi({ onLocation }) {
             width: 10,
             height: 10,
             borderRadius: "50%",
-            backgroundColor: "#4caf50",
+            backgroundColor: "#ff0000",
           }}
         />
         <Typography variant="caption" color="text.secondary">

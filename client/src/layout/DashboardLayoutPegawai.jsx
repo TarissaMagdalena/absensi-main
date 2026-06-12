@@ -37,18 +37,18 @@ export default function DashboardLayoutPegawai({ children }) {
           backgroundColor: "#f5f6fa",
 
           "& .MuiTableCell-root": {
-            fontSize: "13px",
+            fontSize: "12px",
             fontWeight: 400,
           },
           "& .MuiButton-root": {
-            fontSize: "13px",
+            fontSize: "12px",
             fontWeight: 500,
           },
           "& .MuiInputBase-root": {
-            fontSize: "14px",
+            fontSize: "12px",
           },
           "& .MuiChip-root": {
-            fontSize: "12px",
+            fontSize: "11px",
           },
         }}
       >

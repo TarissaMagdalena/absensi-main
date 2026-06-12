@@ -36,12 +36,14 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 const emptyForm = {
   pegawai_id: "",
   tanggal: "",
   status: "Izin",
   keterangan: "",
+  shift_kode: "",
 };
 
 const getStatusColor = (s) => {
@@ -92,9 +94,18 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
             >
               {index + 1}
             </Typography>
-            <Typography fontWeight="bold" fontSize={14}>
-              {item.nama}
-            </Typography>
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <Typography fontWeight="bold" fontSize={14}>
+                {item.nama}
+              </Typography>
+              {item.is_suspicious === 1 && (
+                <Tooltip
+                  title={`Lokasi mencurigakan — akurasi GPS terlalu sempurna (±${item.accuracy}m), kemungkinan menggunakan fake GPS`}
+                >
+                  <WarningAmberIcon sx={{ fontSize: 15, color: "#f57c00" }} />
+                </Tooltip>
+              )}
+            </Box>
           </Box>
           <Chip
             label={item.status}
@@ -146,6 +157,40 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
               />
             )}
           </Stack>
+        )}
+
+        {item.is_suspicious === 1 && (
+          <Box
+            sx={{
+              mb: 1,
+              p: 1,
+              borderRadius: 1.5,
+              backgroundColor: "#fff3e0",
+              border: "1px solid #ffcc02",
+            }}
+          >
+            <Typography fontSize={11} color="#e65100">
+              ⚠️ Lokasi mencurigakan — akurasi GPS terlalu sempurna (±
+              {item.accuracy}m)
+            </Typography>
+          </Box>
+        )}
+
+        {/* ✅ Info absensi manual oleh admin */}
+        {item.keterangan?.includes("Diabsensi manual oleh admin") && (
+          <Box
+            sx={{
+              mb: 1,
+              p: 1,
+              borderRadius: 1.5,
+              backgroundColor: "#e3f2fd",
+              border: "1px solid #90caf9",
+            }}
+          >
+            <Typography fontSize={11} color="#1565c0">
+              ℹ️ Absensi ini dicatat manual oleh admin
+            </Typography>
+          </Box>
         )}
 
         {(item.keterangan || item.keterangan_pulang) && (
@@ -254,10 +299,17 @@ export default function DataAbsensi() {
   const [search, setSearch] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [status, setStatus] = useState("");
+  const [bulan, setBulan] = useState(
+    new Date()
+      .toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+      .slice(0, 7),
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [shiftOtomatis, setShiftOtomatis] = useState(null); // { shift_kode, nama, jam_masuk, jam_pulang }
+  const [loadingShift, setLoadingShift] = useState(false);
   const [suratFile, setSuratFile] = useState(null);
   const [suratPreview, setSuratPreview] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
@@ -272,7 +324,7 @@ export default function DataAbsensi() {
 
   const fetchAbsensi = async () => {
     try {
-      const res = await api.get("/absensi");
+      const res = await api.get(`/absensi?bulan=${bulan}`);
       setData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Gagal fetch absensi:", err);
@@ -291,7 +343,26 @@ export default function DataAbsensi() {
   useEffect(() => {
     fetchAbsensi();
     fetchPegawai();
-  }, []);
+  }, [bulan]);
+
+  // 🔥 Fetch shift otomatis saat pegawai dan tanggal sudah diisi
+  useEffect(() => {
+    if (
+      !form.pegawai_id ||
+      !form.tanggal ||
+      form.status !== "Hadir" ||
+      editId
+    ) {
+      setShiftOtomatis(null);
+      return;
+    }
+    setLoadingShift(true);
+    api
+      .get(`/jadwal/pegawai/${form.pegawai_id}?tanggal=${form.tanggal}`)
+      .then((res) => setShiftOtomatis(res.data))
+      .catch(() => setShiftOtomatis(null))
+      .finally(() => setLoadingShift(false));
+  }, [form.pegawai_id, form.tanggal, form.status, editId]);
 
   const filteredData = data.filter(
     (item) =>
@@ -330,6 +401,7 @@ export default function DataAbsensi() {
       tanggal: item.tanggal || "",
       status: item.status || "Izin",
       keterangan: item.keterangan || "",
+      shift_kode: item.shift_kode || "",
     });
     resetFileState();
     setDialogOpen(true);
@@ -350,6 +422,13 @@ export default function DataAbsensi() {
     if (!form.pegawai_id || !form.tanggal || !form.status) {
       return showSnackbar("Pegawai, tanggal, dan status wajib diisi", "error");
     }
+    // ✅ Shift wajib hanya untuk Hadir
+    if (form.status === "Hadir" && !shiftOtomatis) {
+      return showSnackbar(
+        "Pegawai tidak memiliki jadwal shift di tanggal ini. Periksa kembali jadwal shift pegawai.",
+        "warning",
+      );
+    }
     setSaving(true);
     try {
       if (editId) {
@@ -363,7 +442,15 @@ export default function DataAbsensi() {
         formData.append("pegawai_id", form.pegawai_id);
         formData.append("tanggal", form.tanggal);
         formData.append("status", form.status);
-        formData.append("keterangan", form.keterangan);
+        formData.append("shift_kode", shiftOtomatis?.shift_kode || "");
+
+        // ✅ Keterangan otomatis untuk absensi manual Hadir
+        const keteranganFinal =
+          form.status === "Hadir"
+            ? `Diabsensi manual oleh admin${form.keterangan ? ` · ${form.keterangan}` : ""}`
+            : form.keterangan;
+        formData.append("keterangan", keteranganFinal);
+
         if (suratFile) formData.append("surat_mc", suratFile);
         await api.post("/absensi/manual", formData, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -394,7 +481,6 @@ export default function DataAbsensi() {
     }
   };
 
-  // 🔥 Props bottom sheet untuk mobile
   const bottomSheetProps = {
     PaperProps: {
       sx: {
@@ -407,9 +493,7 @@ export default function DataAbsensi() {
       },
     },
     sx: {
-      "& .MuiDialog-container": {
-        alignItems: isSmall ? "flex-end" : "center",
-      },
+      "& .MuiDialog-container": { alignItems: isSmall ? "flex-end" : "center" },
     },
   };
 
@@ -488,7 +572,7 @@ export default function DataAbsensi() {
         {/* FILTER */}
         <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, md: 3.5 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -497,7 +581,7 @@ export default function DataAbsensi() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 6, md: 2.5 }}>
+            <Grid size={{ xs: 6, md: 2 }}>
               <TextField
                 select
                 fullWidth
@@ -515,7 +599,7 @@ export default function DataAbsensi() {
                 <MenuItem value="Alfa">Alfa</MenuItem>
               </TextField>
             </Grid>
-            <Grid size={{ xs: 6, md: 2.5 }}>
+            <Grid size={{ xs: 6, md: 1.5 }}>
               <TextField
                 type="date"
                 fullWidth
@@ -523,6 +607,17 @@ export default function DataAbsensi() {
                 label="Tanggal"
                 value={tanggal}
                 onChange={(e) => setTanggal(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 1.5 }}>
+              <TextField
+                type="month"
+                fullWidth
+                size="small"
+                label="Bulan"
+                value={bulan}
+                onChange={(e) => setBulan(e.target.value)}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -536,12 +631,17 @@ export default function DataAbsensi() {
                   setSearch("");
                   setTanggal("");
                   setStatus("");
+                  setBulan(
+                    new Date()
+                      .toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+                      .slice(0, 7),
+                  );
                 }}
               >
                 Reset
               </Button>
             </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
+            <Grid size={{ xs: 6, md: 2.5 }}>
               <Button
                 fullWidth
                 variant="contained"
@@ -614,7 +714,7 @@ export default function DataAbsensi() {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 30 }}>No</TableCell>
-                    <TableCell sx={{ width: 100 }}>Nama</TableCell>
+                    <TableCell sx={{ width: 120 }}>Nama</TableCell>
                     <TableCell sx={{ width: 170 }}>Tanggal</TableCell>
                     <TableCell sx={{ width: 70 }}>Jadwal</TableCell>
                     <TableCell sx={{ width: 100 }}>Jam Masuk</TableCell>
@@ -622,7 +722,7 @@ export default function DataAbsensi() {
                     <TableCell sx={{ width: 100 }}>Jam Pulang</TableCell>
                     <TableCell sx={{ width: 90 }}>Area Pulang</TableCell>
                     <TableCell sx={{ width: 90 }}>Koordinat</TableCell>
-                    <TableCell sx={{ width: 100 }}>Keterangan</TableCell>
+                    <TableCell sx={{ width: 120 }}>Keterangan</TableCell>
                     <TableCell sx={{ width: 100 }}>Status</TableCell>
                     <TableCell sx={{ width: 90 }} align="center">
                       Aksi
@@ -637,7 +737,32 @@ export default function DataAbsensi() {
                         sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
                       >
                         <TableCell>{index + 1}</TableCell>
-                        <TableCell>{item.nama}</TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <Box>
+                              <Typography fontWeight="bold" fontSize={12}>
+                                {item.nama}
+                              </Typography>
+                              {/* ✅ Label "Manual" di bawah nama */}
+                              {item.keterangan?.includes(
+                                "Diabsensi manual oleh admin",
+                              ) && (
+                                <Typography fontSize={10} color="#1565c0">
+                                  📋 Manual oleh admin
+                                </Typography>
+                              )}
+                            </Box>
+                            {item.is_suspicious === 1 && (
+                              <Tooltip
+                                title={`Lokasi mencurigakan — akurasi ±${item.accuracy}m`}
+                              >
+                                <WarningAmberIcon
+                                  sx={{ fontSize: 15, color: "#f57c00" }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
                         <TableCell>{formatTanggal(item.tanggal)}</TableCell>
                         <TableCell>{item.shift_kode || "-"}</TableCell>
                         <TableCell>
@@ -840,7 +965,7 @@ export default function DataAbsensi() {
           maxWidth="sm"
           fullWidth
           fullScreen={false}
-          {...bottomSheetProps} // 🔥 bottom sheet di mobile
+          {...bottomSheetProps}
         >
           <DialogTitle fontWeight="bold">
             {editId ? "Edit Absensi" : "Tambah Absensi"}
@@ -848,6 +973,7 @@ export default function DataAbsensi() {
           <Divider />
           <DialogContent dividers>
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
+              {/* Pegawai */}
               {!editId ? (
                 <TextField
                   select
@@ -881,6 +1007,7 @@ export default function DataAbsensi() {
                 />
               )}
 
+              {/* Tanggal */}
               {!editId && (
                 <TextField
                   type="date"
@@ -895,22 +1022,31 @@ export default function DataAbsensi() {
                 />
               )}
 
+              {/* Status — hanya Hadir, Izin, Sakit */}
               <TextField
                 select
                 fullWidth
                 size="small"
                 label="Status *"
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, status: e.target.value, shift_kode: "" })
+                }
                 disabled={!!(editId && form.status === "Cuti")}
               >
+                {/* ✅ Hanya 3 opsi untuk tambah manual */}
+                {!editId && <MenuItem value="Hadir">Hadir</MenuItem>}
                 <MenuItem value="Izin">Izin</MenuItem>
                 <MenuItem value="Sakit">Sakit</MenuItem>
                 {editId && form.status === "Cuti" && (
                   <MenuItem value="Cuti">Cuti</MenuItem>
                 )}
+                {editId && form.status === "Hadir" && (
+                  <MenuItem value="Hadir">Hadir</MenuItem>
+                )}
               </TextField>
 
+              {/* Info cuti dari jadwal */}
               {editId && form.status === "Cuti" && (
                 <Box
                   sx={{
@@ -928,6 +1064,87 @@ export default function DataAbsensi() {
                 </Box>
               )}
 
+              {/* ✅ Shift — hanya muncul untuk Hadir saat tambah */}
+              {/* ✅ Ganti input shift dengan info otomatis */}
+              {form.status === "Hadir" && !editId && (
+                <Box>
+                  {loadingShift ? (
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: "#f5f5f5",
+                      }}
+                    >
+                      <Typography fontSize={12} color="text.secondary">
+                        🔄 Mengambil jadwal shift...
+                      </Typography>
+                    </Box>
+                  ) : shiftOtomatis ? (
+                    // 🔥 Tampilkan info shift yang ditemukan
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: "#e8f5e9",
+                        border: "1px solid #a5d6a7",
+                      }}
+                    >
+                      <Typography
+                        fontSize={12}
+                        fontWeight="bold"
+                        color="#2e7d32"
+                        mb={0.5}
+                      >
+                        ✅ Jadwal shift ditemukan
+                      </Typography>
+                      <Typography fontSize={12} color="#2e7d32">
+                        Shift <strong>{shiftOtomatis.shift_kode}</strong> —{" "}
+                        {shiftOtomatis.nama}
+                      </Typography>
+                      <Typography fontSize={11} color="#2e7d32">
+                        {shiftOtomatis.jam_masuk?.slice(0, 5)} –{" "}
+                        {shiftOtomatis.jam_pulang?.slice(0, 5)} WIB
+                      </Typography>
+                    </Box>
+                  ) : form.pegawai_id && form.tanggal ? (
+                    // 🔥 Tidak ada jadwal
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: "#fff3e0",
+                        border: "1px solid #ffcc02",
+                      }}
+                    >
+                      <Typography fontSize={12} color="#e65100">
+                        ⚠️ Pegawai tidak memiliki jadwal shift di tanggal ini.
+                        Periksa halaman Jadwal Shift.
+                      </Typography>
+                    </Box>
+                  ) : null}
+
+                  {/* Info untuk admin */}
+                  {shiftOtomatis && (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: "#e3f2fd",
+                        border: "1px solid #90caf9",
+                      }}
+                    >
+                      <Typography fontSize={12} color="#1565c0">
+                        ℹ️ Pegawai akan melihat notifikasi bahwa absensi telah
+                        dilakukan manual oleh admin.
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* Keterangan */}
               <TextField
                 fullWidth
                 size="small"
@@ -935,9 +1152,11 @@ export default function DataAbsensi() {
                 multiline
                 rows={2}
                 placeholder={
-                  form.status === "Sakit"
-                    ? "Contoh: Demam, ada surat MC"
-                    : "Contoh: Keperluan keluarga"
+                  form.status === "Hadir"
+                    ? "Contoh: Jaringan internet bermasalah"
+                    : form.status === "Sakit"
+                      ? "Contoh: Demam, ada surat MC"
+                      : "Contoh: Keperluan keluarga"
                 }
                 value={form.keterangan}
                 onChange={(e) =>
@@ -945,6 +1164,7 @@ export default function DataAbsensi() {
                 }
               />
 
+              {/* Upload surat MC untuk Sakit */}
               {form.status === "Sakit" && !editId && (
                 <>
                   <Divider />
@@ -1053,7 +1273,7 @@ export default function DataAbsensi() {
           maxWidth="xs"
           fullWidth
           fullScreen={false}
-          {...bottomSheetProps} // 🔥 bottom sheet di mobile
+          {...bottomSheetProps}
         >
           <DialogTitle fontWeight="bold">Hapus Absensi</DialogTitle>
           <Divider />

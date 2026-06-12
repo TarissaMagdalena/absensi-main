@@ -111,12 +111,15 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
 
       <Divider />
 
-      <List sx={{ overflowX: "hidden" }}>
+      <List sx={{ overflowX: "hidden", py: 0.8 }}>
         <ListItemButton
           disableRipple
           sx={{
             mx: 1,
-            mb: 1,
+            my: 0,
+            py: 0.8,
+            px: 2,
+            minHeight: 44,
             gap: 2,
             maxWidth: "calc(100% - 16px)",
             cursor: "default",
@@ -124,15 +127,7 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
           }}
         >
           <ListItemIcon sx={{ minWidth: 0 }}>
-            <PersonIcon
-              sx={{
-                fontSize: 26,
-                color: "#555",
-                backgroundColor: "#e5e7eb",
-                borderRadius: "50%",
-                p: 0.7,
-              }}
-            />
+            <PersonIcon sx={iconStyle} />
           </ListItemIcon>
 
           <Typography fontSize={15} fontWeight="bold" noWrap>
