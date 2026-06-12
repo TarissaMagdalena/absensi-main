@@ -21,7 +21,9 @@ function App() {
   return (
     <Routes>
       {/* ── Halaman login (publik) ─────────────────────────────────────────── */}
-      <Route path="/" element={<LoginGuard />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+
+      <Route path="/login" element={<LoginGuard />} />
 
       {/* ── Route ADMIN — hanya bisa diakses role "admin" ─────────────────── */}
       <Route
@@ -108,7 +110,7 @@ function App() {
       />
 
       {/* ── Catch-all: route tidak dikenal → redirect ke login ────────────── */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
