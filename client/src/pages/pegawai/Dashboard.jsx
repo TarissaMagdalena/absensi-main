@@ -37,6 +37,13 @@ const SHIFT_COLORS = {
 
 const SHIFT_TIDAK_ABSEN = ["L", "CT"];
 
+// 🔥 Helper: konversi "HH:MM" atau "HH:MM:SS" ke menit
+function timeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.slice(0, 5).split(":").map(Number);
+  return h * 60 + m;
+}
+
 export default function Dashboard() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -49,23 +56,24 @@ export default function Dashboard() {
     }
   })();
 
-  // ── State absensi ──────────────────────────────────────────────────────────
   const [absenMasuk, setAbsenMasuk] = useState(null);
   const [statusMasuk, setStatusMasuk] = useState("Belum Absen");
   const [absenPulang, setAbsenPulang] = useState(null);
   const [statusPulang, setStatusPulang] = useState("Belum Absen");
 
-  // ── State modal ────────────────────────────────────────────────────────────
   const [showModalMasuk, setShowModalMasuk] = useState(false);
   const [showModalPulang, setShowModalPulang] = useState(false);
   const [loadingMasuk, setLoadingMasuk] = useState(false);
   const [loadingPulang, setLoadingPulang] = useState(false);
 
-  // ── State lainnya ──────────────────────────────────────────────────────────
   const [lokasi, setLokasi] = useState(null);
   const [aktivitas, setAktivitas] = useState([]);
   const [jadwalHariIni, setJadwalHariIni] = useState(null);
   const [loadingJadwal, setLoadingJadwal] = useState(true);
+
+  // 🔥 State waktu sekarang — update setiap menit
+  const [nowMinutes, setNowMinutes] = useState(null);
+
   const [notif, setNotif] = useState({
     open: false,
     message: "",
@@ -87,7 +95,29 @@ export default function Dashboard() {
   });
   const pegawaiId = user?.pegawai_id;
 
-  // ── Fetch jadwal hari ini ──────────────────────────────────────────────────
+  // 🔥 Update nowMinutes setiap 1 menit
+  useEffect(() => {
+    const fetchServerTime = async () => {
+      try {
+        const res = await apiFetch("http://localhost:5000/api/time");
+        const data = await res.json();
+
+        if (data.serverTime) {
+          const waktuServer = new Date(data.serverTime);
+          setNowMinutes(waktuServer.getHours() * 60 + waktuServer.getMinutes());
+        }
+      } catch (err) {
+        console.error("Gagal mengambil waktu server:", err);
+      }
+    };
+
+    fetchServerTime();
+    const interval = setInterval(fetchServerTime, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Fetch jadwal ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     setLoadingJadwal(true);
@@ -100,7 +130,7 @@ export default function Dashboard() {
       .finally(() => setLoadingJadwal(false));
   }, [pegawaiId, todayStr]);
 
-  // ── Fetch absensi hari ini ─────────────────────────────────────────────────
+  // ── Fetch absensi hari ini ──────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     apiFetch(
@@ -109,20 +139,15 @@ export default function Dashboard() {
       .then((res) => res.json())
       .then((data) => {
         if (!data) return;
-
-        // ── Absen masuk ──────────────────────────────────────────────────────
         if (data.jam_masuk) {
           setAbsenMasuk(data.jam_masuk);
           setStatusMasuk(data.status);
-
-          // 🔥 Keterangan berbeda jika diabsensi manual oleh admin
           const keterangan = data.is_manual_admin
             ? "Diabsensi manual oleh admin"
             : data.keterangan ||
               (data.status_area === "DALAM"
                 ? "Dalam Area Kantor"
                 : "Di Luar Area Kantor");
-
           setAktivitas((prev) => {
             if (prev.find((a) => a.tipe === "masuk")) return prev;
             return [
@@ -142,16 +167,12 @@ export default function Dashboard() {
             ];
           });
         }
-
-        // ── Absen pulang ─────────────────────────────────────────────────────
         if (data.jam_pulang) {
           setAbsenPulang(data.jam_pulang);
           setStatusPulang("Selesai");
-
           const keteranganPulang = data.is_manual_admin
             ? "Diabsensi manual oleh admin"
             : data.keterangan_pulang || "Jam pulang tercatat";
-
           setAktivitas((prev) => {
             if (prev.find((a) => a.tipe === "pulang")) return prev;
             return [
@@ -177,7 +198,61 @@ export default function Dashboard() {
       .catch((err) => console.error("Gagal fetch absen hari ini:", err));
   }, [pegawaiId]);
 
-  // ── Absen masuk ────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔥 LOGIKA VALIDASI WAKTU ABSENSI
+  // ═══════════════════════════════════════════════════════════════════════════
+  const getStatusWaktuAbsen = () => {
+    if (
+      nowMinutes === null ||
+      !jadwalHariIni?.jam_masuk ||
+      !jadwalHariIni?.jam_pulang
+    ) {
+      return { boleh: false, pesan: "" };
+    }
+    const menitMasuk = timeToMinutes(jadwalHariIni.jam_masuk);
+    const menitPulang = timeToMinutes(jadwalHariIni.jam_pulang);
+    const BATAS_AWAL = 60; // 🔥 1 jam sebelum jam masuk
+
+    const isShiftMalam = menitPulang < menitMasuk; // misal 19:00 - 07:00
+
+    if (isShiftMalam) {
+      // Shift malam: aktif mulai 1 jam sebelum masuk (18:00) hingga jam pulang (07:00)
+      const mulaiAktif = menitMasuk - BATAS_AWAL;
+      // Boleh absen jika: nowMinutes >= mulaiAktif ATAU nowMinutes < menitPulang
+      if (!(nowMinutes >= mulaiAktif || nowMinutes < menitPulang)) {
+        const jamMulai = `${String(Math.floor(mulaiAktif / 60)).padStart(2, "0")}:${String(mulaiAktif % 60).padStart(2, "0")}`;
+        return {
+          boleh: false,
+          pesan: `Absensi dibuka mulai pukul ${jamMulai} WIB (1 jam sebelum shift dimulai)`,
+        };
+      }
+    } else {
+      // Shift normal: aktif mulai 1 jam sebelum masuk hingga jam pulang
+      const mulaiAktif = menitMasuk - BATAS_AWAL;
+      if (nowMinutes < mulaiAktif) {
+        const jamMulai = `${String(Math.floor(mulaiAktif / 60)).padStart(2, "0")}:${String(mulaiAktif % 60).padStart(2, "0")}`;
+        return {
+          boleh: false,
+          pesan: `Absensi dibuka mulai pukul ${jamMulai} WIB (1 jam sebelum shift dimulai)`,
+        };
+      }
+      if (nowMinutes > menitPulang) {
+        return {
+          boleh: false,
+          pesan:
+            "Waktu absensi telah berakhir. Hubungi admin jika ada kendala.",
+        };
+      }
+    }
+
+    return { boleh: true, pesan: "" };
+  };
+  const shiftButuhAbsen =
+    jadwalHariIni && !SHIFT_TIDAK_ABSEN.includes(jadwalHariIni.shift_kode);
+
+  const statusWaktu = getStatusWaktuAbsen();
+
+  // ── Absen masuk ─────────────────────────────────────────────────────────────
   const handleSubmitAbsensi = async () => {
     if (loadingMasuk) return;
     if (!lokasi) {
@@ -247,7 +322,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Keterangan pulang ──────────────────────────────────────────────────────
+  // ── Keterangan pulang ────────────────────────────────────────────────────────
   const getKeteranganPulang = useCallback(
     (jamPulangAktual) => {
       if (!jamPulangAktual || !jadwalHariIni?.jam_pulang)
@@ -282,7 +357,7 @@ export default function Dashboard() {
     [jadwalHariIni],
   );
 
-  // ── Absen pulang ───────────────────────────────────────────────────────────
+  // ── Absen pulang ─────────────────────────────────────────────────────────────
   const handleSubmitPulang = async () => {
     if (loadingPulang) return;
     if (!lokasi) {
@@ -319,7 +394,9 @@ export default function Dashboard() {
           timeZone: "Asia/Jakarta",
         });
       const keteranganPulang =
-        data.keterangan_pulang || getKeteranganPulang(jamPulang);
+        data.keterangan_pulang ||
+        getKeteranganPulang(jamPulang) ||
+        "Jam pulang tercatat";
       setAbsenPulang(jamPulang);
       setStatusPulang("Selesai");
       setAktivitas((prev) => [
@@ -352,7 +429,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Kartu jadwal ───────────────────────────────────────────────────────────
+  // ── Kartu jadwal ─────────────────────────────────────────────────────────────
   const renderKartuJadwal = () => {
     if (loadingJadwal) {
       return (
@@ -498,14 +575,28 @@ export default function Dashboard() {
             }}
           />
         </Box>
+
+        {/* 🔥 Info waktu absen belum dibuka */}
+        {!statusWaktu.boleh && !absenMasuk && statusWaktu.pesan && (
+          <Box
+            sx={{
+              mt: 1.5,
+              p: 1.5,
+              borderRadius: 2,
+              backgroundColor: "#fff3e0",
+              border: "1px solid #ffcc02",
+            }}
+          >
+            <Typography fontSize={12} color="#e65100">
+              🕐 {statusWaktu.pesan}
+            </Typography>
+          </Box>
+        )}
       </Paper>
     );
   };
 
-  const shiftButuhAbsen =
-    jadwalHariIni && !SHIFT_TIDAK_ABSEN.includes(jadwalHariIni.shift_kode);
-
-  // ── Dialog props mobile (bottom sheet) ────────────────────────────────────
+  // ── Bottom sheet props ────────────────────────────────────────────────────────
   const bottomSheetProps = {
     PaperProps: {
       sx: {
@@ -525,7 +616,7 @@ export default function Dashboard() {
     },
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutPegawai>
       <Box>
@@ -534,14 +625,11 @@ export default function Dashboard() {
         </Typography>
 
         <Box display="flex" flexDirection="column" gap={3}>
-          {/* ── Kartu jadwal ── */}
           {renderKartuJadwal()}
 
-          {/* ── Peta lokasi ── */}
+          {/* ── Peta ── */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
             <MapAbsensi onLocation={setLokasi} />
-
-            {/* Peringatan akurasi terlalu sempurna (kemungkinan fake GPS) */}
             {lokasi && lokasi.accuracy < 5 && (
               <Box
                 sx={{
@@ -559,8 +647,6 @@ export default function Dashboard() {
                 </Typography>
               </Box>
             )}
-
-            {/* Peringatan akurasi terlalu buruk */}
             {lokasi && lokasi.accuracy > 150 && (
               <Box
                 sx={{
@@ -579,7 +665,7 @@ export default function Dashboard() {
             )}
           </Paper>
 
-          {/* ── Tombol absen masuk & pulang ── */}
+          {/* ── Tombol absen ── */}
           <Box display="flex" gap={2}>
             {/* ABSEN MASUK */}
             <Paper
@@ -599,7 +685,6 @@ export default function Dashboard() {
                   return;
                 }
                 if (statusMasuk !== "Belum Absen") {
-                  // 🔥 Pesan berbeda jika sudah diabsensi manual oleh admin
                   const isManual = aktivitas.find(
                     (a) => a.tipe === "masuk" && a.is_manual_admin,
                   );
@@ -612,6 +697,15 @@ export default function Dashboard() {
                   });
                   return;
                 }
+                // 🔥 Cek waktu — tombol hanya bisa diklik jika sudah waktunya
+                if (!statusWaktu.boleh) {
+                  setNotif({
+                    open: true,
+                    severity: "warning",
+                    message: statusWaktu.pesan,
+                  });
+                  return;
+                }
                 setShowModalMasuk(true);
               }}
               sx={{
@@ -620,12 +714,19 @@ export default function Dashboard() {
                 borderRadius: 3,
                 backgroundColor: "#22c55e",
                 color: "#fff",
+                // 🔥 Nonaktif jika belum waktunya atau sudah absen
                 cursor:
-                  statusMasuk === "Belum Absen" && shiftButuhAbsen
+                  statusMasuk === "Belum Absen" &&
+                  shiftButuhAbsen &&
+                  statusWaktu.boleh
                     ? "pointer"
                     : "not-allowed",
                 opacity:
-                  statusMasuk === "Belum Absen" && shiftButuhAbsen ? 1 : 0.6,
+                  statusMasuk === "Belum Absen" &&
+                  shiftButuhAbsen &&
+                  statusWaktu.boleh
+                    ? 1
+                    : 0.6,
                 minWidth: 0,
                 overflow: "hidden",
               }}
@@ -640,7 +741,12 @@ export default function Dashboard() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {absenMasuk || "Klik untuk Absen"}
+                {/* 🔥 Tampilkan pesan yang berbeda sesuai kondisi */}
+                {absenMasuk
+                  ? absenMasuk
+                  : !statusWaktu.boleh && shiftButuhAbsen
+                    ? "Belum Waktunya"
+                    : "Klik untuk Absen"}
               </Typography>
               <Typography fontSize={{ xs: 10, md: 14 }}>
                 {statusMasuk}
@@ -705,7 +811,7 @@ export default function Dashboard() {
             </Paper>
           </Box>
 
-          {/* ── Aktivitas hari ini ── */}
+          {/* ── Aktivitas ── */}
           <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Typography fontWeight="bold" mb={1}>
               Aktivitas Hari Ini
@@ -713,7 +819,6 @@ export default function Dashboard() {
             <Typography fontSize={13} color="text.secondary" mb={2}>
               {hariIni}
             </Typography>
-
             {aktivitas.length === 0 ? (
               <Box
                 sx={{
@@ -747,7 +852,6 @@ export default function Dashboard() {
                       ) : (
                         <LogoutIcon sx={{ color: "#c62828", flexShrink: 0 }} />
                       )}
-
                       <Box flex={1} minWidth={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.label}
@@ -759,8 +863,6 @@ export default function Dashboard() {
                         >
                           {item.keterangan}
                         </Typography>
-
-                        {/* Info area — hanya tampil jika bukan manual admin */}
                         {item.area && !item.is_manual_admin && (
                           <Typography fontSize={12} color="text.secondary">
                             {item.area === "DALAM"
@@ -768,8 +870,6 @@ export default function Dashboard() {
                               : "Di Luar Area Kantor"}
                           </Typography>
                         )}
-
-                        {/* 🔥 Badge khusus absensi manual admin */}
                         {item.is_manual_admin && (
                           <Box
                             sx={{
@@ -792,7 +892,6 @@ export default function Dashboard() {
                           </Box>
                         )}
                       </Box>
-
                       <Box textAlign="right" flexShrink={0}>
                         <Typography fontWeight="bold" fontSize={14}>
                           {item.jam}

@@ -202,6 +202,30 @@ export const absenMasuk = async (req, res) => {
       });
     }
 
+    // ── Validasi tidak boleh absen setelah jam kerja selesai ─────────────
+    if (jadwal.jam_pulang) {
+      const menitPulangShift = toMenit(jadwal.jam_pulang);
+      const menitMasukShift = toMenit(jadwal.jam_masuk);
+
+      let sudahLewatJamPulang = false;
+
+      // Shift malam, contoh 19:00 - 07:00
+      if (menitPulangShift < menitMasukShift) {
+        sudahLewatJamPulang =
+          menitNow > menitPulangShift && menitNow < menitMasukShift;
+      } else {
+        // Shift normal, contoh 07:00 - 16:00
+        sudahLewatJamPulang = menitNow > menitPulangShift;
+      }
+
+      if (sudahLewatJamPulang) {
+        return res.status(400).json({
+          message:
+            "Waktu absensi masuk telah berakhir. Silakan hubungi admin jika terdapat kendala.",
+        });
+      }
+    }
+
     // ── Hitung status & keterangan ────────────────────────────────────────
     const { status, keterangan } = hitungKeteranganMasuk(now, jadwal.jam_masuk);
 

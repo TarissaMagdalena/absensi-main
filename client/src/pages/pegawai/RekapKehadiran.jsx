@@ -7,6 +7,7 @@ import {
   Button,
   Chip,
   MenuItem,
+  Pagination,
   Paper,
   Snackbar,
   Table,
@@ -44,19 +45,20 @@ const formatTanggal = (tgl, short = false) =>
       : { weekday: "long", day: "numeric", month: "long", year: "numeric" },
   );
 
-const formatPeriode = (tgl) =>
-  new Date(tgl + "T00:00:00").toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+// Catatan: formatPeriode dihapus karena tidak pernah dipakai di JSX —
+// kalau nanti perlu menampilkan "Periode: ... s/d ...", panggil ulang
+// helper ini di tempat yang membutuhkan.
+
+const getBulanIni = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
 
 // ─── Komponen utama ───────────────────────────────────────────────────────────
 export default function RekapKehadiran() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // < 600px
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // Ambil data user dari localStorage
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem("user")) || {};
@@ -70,6 +72,7 @@ export default function RekapKehadiran() {
   const [filterStatus, setFilterStatus] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [bulan, setBulan] = useState(getBulanIni());
   const [jatahCuti, setJatahCuti] = useState({
     jatah: 12,
     terpakai: 0,
@@ -81,32 +84,72 @@ export default function RekapKehadiran() {
     severity: "warning",
   });
 
+  // ── Pagination state ───────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const showNotif = (message, severity = "warning") =>
     setNotif({ open: true, message, severity });
 
-  // ── Fetch data ─────────────────────────────────────────────────────────────
+  // ── Fetch data rekapan berdasarkan bulan ───────────────────────────────────
   useEffect(() => {
     if (!user?.pegawai_id) return;
-    apiFetch(`http://localhost:5000/api/absensi/rekapan/${user.pegawai_id}`)
-      .then((res) => res?.json())
-      .then((json) => setData(Array.isArray(json) ? json : []))
-      .catch((err) => console.error("Gagal ambil rekapan:", err));
-  }, [user?.pegawai_id]);
 
+    let ignore = false;
+
+    // Hitung range dari bulan yang dipilih
+    const [year, month] = bulan.split("-").map(Number);
+    const start = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    (async () => {
+      try {
+        const res = await apiFetch(
+          `http://localhost:5000/api/absensi/rekapan/${user.pegawai_id}?start=${start}&end=${end}`,
+        );
+        const json = await res?.json();
+        if (ignore) return;
+        setData(Array.isArray(json) ? json : []);
+      } catch (err) {
+        if (!ignore) console.error("Gagal ambil rekapan:", err);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user?.pegawai_id, bulan]);
+
+  // ── Fetch jatah cuti ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.pegawai_id) return;
+
+    let ignore = false;
     const tahun = new Date().getFullYear();
-    apiFetch(
-      `http://localhost:5000/api/cuti/pegawai/${user.pegawai_id}?tahun=${tahun}`,
-    )
-      .then((res) => res?.json())
-      .then((json) => {
+
+    (async () => {
+      try {
+        const res = await apiFetch(
+          `http://localhost:5000/api/cuti/pegawai/${user.pegawai_id}?tahun=${tahun}`,
+        );
+        const json = await res?.json();
+        if (ignore) return;
         if (json) setJatahCuti(json);
-      })
-      .catch((err) => console.error("Gagal ambil jatah cuti:", err));
+      } catch (err) {
+        if (!ignore) console.error("Gagal ambil jatah cuti:", err);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
   }, [user?.pegawai_id]);
 
   // ── Filter ─────────────────────────────────────────────────────────────────
+  // Catatan: reset halaman ke 1 digabung langsung ke setter filter (bukan
+  // effect terpisah) supaya tidak memicu warning set-state-in-effect.
+  // Filter pakai derived state biasa — tidak butuh effect sama sekali.
   const filteredData = data.filter((item) => {
     const tgl = item.tanggal?.slice(0, 10);
     return (
@@ -115,6 +158,40 @@ export default function RekapKehadiran() {
       (endDate ? tgl <= endDate : true)
     );
   });
+
+  // Helper untuk update filter + reset page sekaligus, dipanggil dari onChange
+  const updateFilterStatus = (value) => {
+    setFilterStatus(value);
+    setPage(1);
+  };
+  const updateStartDate = (value) => {
+    setStartDate(value);
+    setPage(1);
+  };
+  const updateEndDate = (value) => {
+    setEndDate(value);
+    setPage(1);
+  };
+  const updateBulan = (value) => {
+    setBulan(value);
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
+  const resetFilter = () => {
+    setFilterStatus("");
+    setStartDate("");
+    setEndDate("");
+    setBulan(getBulanIni());
+    setPage(1);
+  };
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  const paginatedData = filteredData.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage,
+  );
 
   // ── Ringkasan ──────────────────────────────────────────────────────────────
   const totalTepat = filteredData.filter((d) => d.status === "Hadir").length;
@@ -151,7 +228,7 @@ export default function RekapKehadiran() {
           </Typography>
         </Box>
 
-        {/* ── Kartu ringkasan — 2 kolom di mobile, 4 kolom di desktop ─────── */}
+        {/* ── Kartu ringkasan ─────────────────────────────────────────────── */}
         <Box
           display="grid"
           gridTemplateColumns="repeat(4, 1fr)"
@@ -211,18 +288,51 @@ export default function RekapKehadiran() {
           ))}
         </Box>
 
-        {/* ── Filter — stack vertikal di mobile, horizontal di desktop ─────── */}
+        {/* ── Filter ──────────────────────────────────────────────────────── */}
         <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
           {isMobile ? (
-            /* ── MOBILE: stack dengan tanggal & tombol 2 kolom ── */
             <Box display="flex" flexDirection="column" gap={1.5}>
+              {/* Baris 1: Bulan (full width) */}
+              <TextField
+                type="month"
+                fullWidth
+                size="small"
+                label="Bulan"
+                value={bulan}
+                onChange={(e) => updateBulan(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+
+              {/* Baris 3: Dari & Sampai */}
+              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5}>
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  label="Dari"
+                  value={startDate}
+                  onChange={(e) => updateStartDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  label="Sampai"
+                  value={endDate}
+                  onChange={(e) => updateEndDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+
+              {/* Baris 2: Status (full width) */}
               <TextField
                 select
                 fullWidth
                 size="small"
                 label="Status"
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+                onChange={(e) => updateFilterStatus(e.target.value)}
               >
                 <MenuItem value="">Semua Status</MenuItem>
                 {["Hadir", "Terlambat", "Izin", "Sakit", "Cuti", "Alfa"].map(
@@ -233,37 +343,15 @@ export default function RekapKehadiran() {
                   ),
                 )}
               </TextField>
-              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5}>
-                <TextField
-                  type="date"
-                  fullWidth
-                  size="small"
-                  label="Dari"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  type="date"
-                  fullWidth
-                  size="small"
-                  label="Sampai"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Box>
+
+              {/* Baris 4: Tombol */}
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5}>
                 <Button
                   fullWidth
                   variant="outlined"
                   size="small"
                   sx={{ height: 40 }}
-                  onClick={() => {
-                    setFilterStatus("");
-                    setStartDate("");
-                    setEndDate("");
-                  }}
+                  onClick={resetFilter}
                 >
                   Reset
                 </Button>
@@ -279,99 +367,103 @@ export default function RekapKehadiran() {
               </Box>
             </Box>
           ) : (
-            /* ── DESKTOP: layout horizontal asli ── */
-            <Box
-              display="grid"
-              gridTemplateColumns="2fr 1.5fr 1.5fr auto auto"
-              gap={1.5}
-              alignItems="flex-end"
-            >
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Status"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+            <Box display="flex" flexDirection="column" gap={1.5}>
+              {/* Baris 1: Bulan + Status + Tanggal + Tombol */}
+              <Box
+                display="grid"
+                gridTemplateColumns="1.5fr 1.5fr 1.5fr 1.5fr auto auto"
+                gap={1.5}
+                alignItems="flex-end"
               >
-                <MenuItem value="">Semua Status</MenuItem>
-                {["Hadir", "Terlambat", "Izin", "Sakit", "Cuti", "Alfa"].map(
-                  (s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ),
-                )}
-              </TextField>
-              <TextField
-                type="date"
-                fullWidth
-                size="small"
-                label="Dari Tanggal"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                type="date"
-                fullWidth
-                size="small"
-                label="Sampai Tanggal"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <Button
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{ height: 40 }}
-                onClick={() => {
-                  setFilterStatus("");
-                  setStartDate("");
-                  setEndDate("");
-                }}
-              >
-                Reset
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                size="small"
-                sx={{ height: 40 }}
-                onClick={handleDownload}
-              >
-                ⬇ Unduh PDF
-              </Button>
-            </Box>
-          )}
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Status"
+                  value={filterStatus}
+                  onChange={(e) => updateFilterStatus(e.target.value)}
+                >
+                  <MenuItem value="">Semua Status</MenuItem>
+                  {["Hadir", "Terlambat", "Izin", "Sakit", "Cuti", "Alfa"].map(
+                    (s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ),
+                  )}
+                </TextField>
+                <TextField
+                  type="month"
+                  fullWidth
+                  size="small"
+                  label="Bulan"
+                  value={bulan}
+                  onChange={(e) => updateBulan(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
 
-          {/* Info periode */}
-          {(startDate || endDate) && (
-            <Typography fontSize={12} color="text.secondary" mt={1.5}>
-              Menampilkan: {startDate ? formatPeriode(startDate) : "awal"} s/d{" "}
-              {endDate ? formatPeriode(endDate) : "sekarang"}
-            </Typography>
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  label="Dari Tanggal"
+                  value={startDate}
+                  onChange={(e) => updateStartDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  label="Sampai Tanggal"
+                  value={endDate}
+                  onChange={(e) => updateEndDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ height: 40, whiteSpace: "nowrap" }}
+                  onClick={resetFilter}
+                >
+                  Reset
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  sx={{ height: 40, whiteSpace: "nowrap" }}
+                  onClick={handleDownload}
+                >
+                  ⬇ Unduh PDF
+                </Button>
+              </Box>
+            </Box>
           )}
         </Paper>
 
-        {/* ── Tabel — card list di mobile, tabel biasa di desktop ──────────── */}
+        {/* ── Tabel / Card ────────────────────────────────────────────────── */}
         {isMobile ? (
-          // ── MOBILE: card per baris ──────────────────────────────────────
           <Box display="flex" flexDirection="column" gap={1.5}>
-            {filteredData.length > 0 ? (
-              filteredData.map((item) => (
+            {paginatedData.length > 0 ? (
+              paginatedData.map((item) => (
                 <Paper key={item.id} sx={{ p: 2, borderRadius: 3 }}>
-                  {/* Baris atas: tanggal + status */}
                   <Box
                     display="flex"
                     justifyContent="space-between"
                     alignItems="center"
                     mb={1}
                   >
-                    <Typography fontSize={13} fontWeight="bold">
-                      {formatTanggal(item.tanggal, true)}
-                    </Typography>
+                    <Box>
+                      <Typography fontSize={13} fontWeight="bold">
+                        {formatTanggal(item.tanggal, true)}
+                      </Typography>
+                      {item.shift_kode && !isNonHadir(item.status) && (
+                        <Typography fontSize={11} color="text.secondary">
+                          Shift {item.shift_kode}
+                        </Typography>
+                      )}
+                    </Box>
                     <Chip
                       label={item.status}
                       color={getStatusColor(item.status)}
@@ -379,16 +471,7 @@ export default function RekapKehadiran() {
                     />
                   </Box>
 
-                  {/* Grid 2 kolom info */}
                   <Box display="grid" gridTemplateColumns="1fr 1fr" gap={0.8}>
-                    <Box>
-                      <Typography fontSize={11} color="text.secondary">
-                        Jadwal
-                      </Typography>
-                      <Typography fontSize={13}>
-                        {isNonHadir(item.status) ? "-" : item.shift_kode || "-"}
-                      </Typography>
-                    </Box>
                     <Box>
                       <Typography fontSize={11} color="text.secondary">
                         Jam Masuk
@@ -451,7 +534,6 @@ export default function RekapKehadiran() {
                         />
                       )}
                     </Box>
-                    {/* Keterangan — full width */}
                     <Box gridColumn="1 / -1">
                       <Typography fontSize={11} color="text.secondary">
                         Keterangan
@@ -474,7 +556,6 @@ export default function RekapKehadiran() {
             )}
           </Box>
         ) : (
-          // ── DESKTOP: tabel biasa ────────────────────────────────────────
           <Paper
             sx={{
               borderRadius: 3,
@@ -520,13 +601,16 @@ export default function RekapKehadiran() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredData.length > 0 ? (
-                    filteredData.map((item, index) => (
+                  {paginatedData.length > 0 ? (
+                    paginatedData.map((item, index) => (
                       <TableRow
                         key={item.id}
                         sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
                       >
-                        <TableCell>{index + 1}</TableCell>
+                        {/* Nomor urut global */}
+                        <TableCell>
+                          {(page - 1) * rowsPerPage + index + 1}
+                        </TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>
                           {formatTanggal(item.tanggal)}
                         </TableCell>
@@ -539,12 +623,12 @@ export default function RekapKehadiran() {
                           {item.jam_masuk ? (
                             <Chip
                               label={item.jam_masuk}
+                              size="small"
                               color={
                                 item.status === "Terlambat"
                                   ? "warning"
                                   : "default"
                               }
-                              size="small"
                             />
                           ) : (
                             "-"
@@ -556,13 +640,13 @@ export default function RekapKehadiran() {
                           ) : (
                             <Chip
                               label={item.status_area || "-"}
+                              size="small"
+                              variant="outlined"
                               color={
                                 item.status_area === "DALAM"
                                   ? "success"
                                   : "warning"
                               }
-                              size="small"
-                              variant="outlined"
                             />
                           )}
                         </TableCell>
@@ -579,13 +663,13 @@ export default function RekapKehadiran() {
                           ) : (
                             <Chip
                               label={item.status_area_pulang || "-"}
+                              size="small"
+                              variant="outlined"
                               color={
                                 item.status_area_pulang === "DALAM"
                                   ? "success"
                                   : "warning"
                               }
-                              size="small"
-                              variant="outlined"
                             />
                           )}
                         </TableCell>
@@ -624,6 +708,62 @@ export default function RekapKehadiran() {
               </Table>
             </Box>
           </Paper>
+        )}
+
+        {/* ── Pagination ───────────────────────────────────────────────────── */}
+        {filteredData.length > 0 && (
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            flexWrap="wrap"
+            gap={1.5}
+            mt={2}
+            px={0.5}
+          >
+            {/* Kiri: pilih jumlah baris */}
+            <Box display="flex" alignItems="center" gap={1}>
+              <Typography fontSize={13} color="text.secondary">
+                Tampilkan
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPage(1);
+                }}
+                sx={{ width: 75 }}
+              >
+                {[10, 25, 50].map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Typography fontSize={13} color="text.secondary">
+                dari <strong>{filteredData.length}</strong> data
+              </Typography>
+            </Box>
+
+            {/* Kanan: nomor halaman */}
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Typography fontSize={13} color="text.secondary">
+                Hal. <strong>{page}</strong> / <strong>{totalPages}</strong>
+              </Typography>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, val) => setPage(val)}
+                color="primary"
+                shape="rounded"
+                size={isMobile ? "small" : "medium"}
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          </Box>
         )}
       </Box>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
 import {
@@ -29,6 +29,7 @@ import {
   Card,
   CardContent,
   Stack,
+  Pagination,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -71,6 +72,7 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
       sx={{ borderRadius: 3, mb: 1.5, "&:hover": { boxShadow: 2 } }}
     >
       <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+        {/* Baris atas: nama + status */}
         <Box
           display="flex"
           justifyContent="space-between"
@@ -114,6 +116,7 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
           />
         </Box>
 
+        {/* Tanggal + shift */}
         <Typography fontSize={12} color="text.secondary" mb={1}>
           {formatTanggal(item.tanggal)}
           {item.shift_kode && (
@@ -126,6 +129,7 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
           )}
         </Typography>
 
+        {/* Chip jam masuk/pulang + area */}
         {(item.jam_masuk || item.jam_pulang) && (
           <Stack direction="row" spacing={1} mb={1} flexWrap="wrap">
             {item.jam_masuk && (
@@ -159,6 +163,7 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
           </Stack>
         )}
 
+        {/* Warning fake GPS */}
         {item.is_suspicious === 1 && (
           <Box
             sx={{
@@ -176,7 +181,7 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
           </Box>
         )}
 
-        {/* ✅ Info absensi manual oleh admin */}
+        {/* Info manual admin */}
         {item.keterangan?.includes("Diabsensi manual oleh admin") && (
           <Box
             sx={{
@@ -193,12 +198,14 @@ function AbsensiCard({ item, index, onEdit, onDelete, isCutiDariJadwal }) {
           </Box>
         )}
 
+        {/* Keterangan */}
         {(item.keterangan || item.keterangan_pulang) && (
           <Typography fontSize={12} color="text.secondary" mb={1}>
             {item.keterangan || item.keterangan_pulang}
           </Typography>
         )}
 
+        {/* Footer card: koordinat + aksi */}
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Stack direction="row" spacing={0.5}>
             {item.latitude && item.longitude && (
@@ -294,8 +301,11 @@ export default function DataAbsensi() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // ── State data ──────────────────────────────────────────────────────────────
   const [data, setData] = useState([]);
   const [pegawaiList, setPegawaiList] = useState([]);
+
+  // ── State filter ────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [status, setStatus] = useState("");
@@ -304,48 +314,67 @@ export default function DataAbsensi() {
       .toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
       .slice(0, 7),
   );
+
+  // ── State dialog tambah/edit ─────────────────────────────────────────────────
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [shiftOtomatis, setShiftOtomatis] = useState(null); // { shift_kode, nama, jam_masuk, jam_pulang }
+  const [shiftOtomatis, setShiftOtomatis] = useState(null);
   const [loadingShift, setLoadingShift] = useState(false);
+
+  // ── State upload surat ───────────────────────────────────────────────────────
   const [suratFile, setSuratFile] = useState(null);
   const [suratPreview, setSuratPreview] = useState(null);
+
+  // ── State dialog hapus ───────────────────────────────────────────────────────
   const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
+
+  // ── State snackbar ───────────────────────────────────────────────────────────
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
-
   const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
 
-  const fetchAbsensi = async () => {
+  // ── State pagination ─────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // ── Fetch absensi — useCallback agar bisa masuk dependency array ─────────────
+  const fetchAbsensi = useCallback(async () => {
     try {
       const res = await api.get(`/absensi?bulan=${bulan}`);
       setData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Gagal fetch absensi:", err);
     }
-  };
+  }, [bulan]);
 
-  const fetchPegawai = async () => {
+  // ── Fetch daftar pegawai — tidak bergantung state apapun ─────────────────────
+  const fetchPegawai = useCallback(async () => {
     try {
       const res = await api.get("/pegawai");
       setPegawaiList(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Gagal fetch pegawai:", err);
     }
-  };
+  }, []);
 
+  // ── Jalankan fetch saat komponen mount dan saat bulan berubah ────────────────
   useEffect(() => {
     fetchAbsensi();
     fetchPegawai();
-  }, [bulan]);
+  }, [fetchAbsensi, fetchPegawai]);
 
-  // 🔥 Fetch shift otomatis saat pegawai dan tanggal sudah diisi
+  // ── Reset ke halaman 1 setiap kali filter berubah ────────────────────────────
+  useEffect(() => {
+    setPage(1);
+  }, [search, tanggal, status, bulan]);
+
+  // ── Ambil jadwal shift otomatis saat status Hadir + pegawai + tanggal diisi ──
   useEffect(() => {
     if (
       !form.pegawai_id ||
@@ -364,6 +393,7 @@ export default function DataAbsensi() {
       .finally(() => setLoadingShift(false));
   }, [form.pegawai_id, form.tanggal, form.status, editId]);
 
+  // ── Filter data ───────────────────────────────────────────────────────────────
   const filteredData = data.filter(
     (item) =>
       item.nama?.toLowerCase().includes(search.toLowerCase()) &&
@@ -371,6 +401,14 @@ export default function DataAbsensi() {
       (status ? item.status === status : true),
   );
 
+  // ── Pagination ────────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  const paginatedData = filteredData.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage,
+  );
+
+  // ── Summary cards ─────────────────────────────────────────────────────────────
   const totalHadir = filteredData.filter((d) => d.status === "Hadir").length;
   const totalTerlambat = filteredData.filter(
     (d) => d.status === "Terlambat",
@@ -418,11 +456,11 @@ export default function DataAbsensi() {
     }
   };
 
+  // ── Simpan absensi (tambah / edit) ───────────────────────────────────────────
   const handleSimpan = async () => {
     if (!form.pegawai_id || !form.tanggal || !form.status) {
       return showSnackbar("Pegawai, tanggal, dan status wajib diisi", "error");
     }
-    // ✅ Shift wajib hanya untuk Hadir
     if (form.status === "Hadir" && !shiftOtomatis) {
       return showSnackbar(
         "Pegawai tidak memiliki jadwal shift di tanggal ini. Periksa kembali jadwal shift pegawai.",
@@ -444,7 +482,7 @@ export default function DataAbsensi() {
         formData.append("status", form.status);
         formData.append("shift_kode", shiftOtomatis?.shift_kode || "");
 
-        // ✅ Keterangan otomatis untuk absensi manual Hadir
+        // Tambahkan keterangan manual admin untuk status Hadir
         const keteranganFinal =
           form.status === "Hadir"
             ? `Diabsensi manual oleh admin${form.keterangan ? ` · ${form.keterangan}` : ""}`
@@ -470,6 +508,7 @@ export default function DataAbsensi() {
     }
   };
 
+  // ── Hapus absensi ─────────────────────────────────────────────────────────────
   const handleHapus = async () => {
     try {
       await api.delete(`/absensi/${deleteDialog.item.id}`);
@@ -481,6 +520,7 @@ export default function DataAbsensi() {
     }
   };
 
+  // ── Bottom sheet props untuk dialog di mobile ────────────────────────────────
   const bottomSheetProps = {
     PaperProps: {
       sx: {
@@ -497,10 +537,11 @@ export default function DataAbsensi() {
     },
   };
 
+  // ════════════════════════════════════════════════════════════════════════════
   return (
     <DashboardLayoutAdmin>
       <Box sx={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
-        {/* HEADER */}
+        {/* ── HEADER ── */}
         <Box mb={3}>
           <Typography variant="h5" fontWeight="bold">
             Data Absensi
@@ -510,7 +551,7 @@ export default function DataAbsensi() {
           </Typography>
         </Box>
 
-        {/* SUMMARY CARDS */}
+        {/* ── SUMMARY CARDS ── */}
         <Grid container spacing={1.5} mb={2.5}>
           {[
             {
@@ -569,7 +610,7 @@ export default function DataAbsensi() {
           ))}
         </Grid>
 
-        {/* FILTER */}
+        {/* ── FILTER ── */}
         <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid size={{ xs: 12, md: 3 }}>
@@ -656,15 +697,15 @@ export default function DataAbsensi() {
           </Grid>
         </Paper>
 
-        {/* KONTEN */}
+        {/* ── KONTEN: mobile card / desktop tabel ── */}
         {isMobile ? (
           <Box>
-            {filteredData.length > 0 ? (
-              filteredData.map((item, index) => (
+            {paginatedData.length > 0 ? (
+              paginatedData.map((item, index) => (
                 <AbsensiCard
                   key={item.id}
                   item={item}
-                  index={index}
+                  index={(page - 1) * rowsPerPage + index}
                   onEdit={handleOpenEdit}
                   onDelete={(item) => setDeleteDialog({ open: true, item })}
                   isCutiDariJadwal={isCutiDariJadwal}
@@ -730,20 +771,24 @@ export default function DataAbsensi() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredData.length > 0 ? (
-                    filteredData.map((item, index) => (
+                  {paginatedData.length > 0 ? (
+                    paginatedData.map((item, index) => (
                       <TableRow
                         key={item.id}
                         sx={{ "&:hover": { backgroundColor: "#fafafa" } }}
                       >
-                        <TableCell>{index + 1}</TableCell>
+                        {/* No urut global */}
+                        <TableCell>
+                          {(page - 1) * rowsPerPage + index + 1}
+                        </TableCell>
+
+                        {/* Nama + badge manual admin + warning suspicious */}
                         <TableCell>
                           <Box display="flex" alignItems="center" gap={0.5}>
                             <Box>
                               <Typography fontWeight="bold" fontSize={12}>
                                 {item.nama}
                               </Typography>
-                              {/* ✅ Label "Manual" di bawah nama */}
                               {item.keterangan?.includes(
                                 "Diabsensi manual oleh admin",
                               ) && (
@@ -763,8 +808,11 @@ export default function DataAbsensi() {
                             )}
                           </Box>
                         </TableCell>
+
                         <TableCell>{formatTanggal(item.tanggal)}</TableCell>
                         <TableCell>{item.shift_kode || "-"}</TableCell>
+
+                        {/* Jam masuk */}
                         <TableCell>
                           {item.jam_masuk ? (
                             <Chip
@@ -780,6 +828,8 @@ export default function DataAbsensi() {
                             "-"
                           )}
                         </TableCell>
+
+                        {/* Area masuk */}
                         <TableCell>
                           {item.jam_masuk ? (
                             <Chip
@@ -796,6 +846,8 @@ export default function DataAbsensi() {
                             "-"
                           )}
                         </TableCell>
+
+                        {/* Jam pulang */}
                         <TableCell>
                           {item.jam_pulang ? (
                             <Chip label={item.jam_pulang} size="small" />
@@ -803,6 +855,8 @@ export default function DataAbsensi() {
                             "-"
                           )}
                         </TableCell>
+
+                        {/* Area pulang */}
                         <TableCell>
                           {item.jam_pulang ? (
                             <Chip
@@ -819,6 +873,8 @@ export default function DataAbsensi() {
                             "-"
                           )}
                         </TableCell>
+
+                        {/* Koordinat GPS */}
                         <TableCell>
                           {item.latitude && item.longitude ? (
                             <Tooltip
@@ -846,6 +902,8 @@ export default function DataAbsensi() {
                             "-"
                           )}
                         </TableCell>
+
+                        {/* Keterangan + lampiran surat */}
                         <TableCell
                           sx={{
                             fontSize: 13,
@@ -897,6 +955,8 @@ export default function DataAbsensi() {
                             )}
                           </Box>
                         </TableCell>
+
+                        {/* Status chip */}
                         <TableCell>
                           <Chip
                             label={item.status}
@@ -904,6 +964,8 @@ export default function DataAbsensi() {
                             size="small"
                           />
                         </TableCell>
+
+                        {/* Aksi: edit + hapus */}
                         <TableCell align="center">
                           <Box display="flex" gap={0.5} justifyContent="center">
                             <Tooltip title="Edit">
@@ -955,6 +1017,62 @@ export default function DataAbsensi() {
           </Paper>
         )}
 
+        {/* ── PAGINATION ── */}
+        {filteredData.length > 0 && (
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            flexWrap="wrap"
+            gap={1.5}
+            mt={2}
+            px={0.5}
+          >
+            {/* Kiri: pilih jumlah per halaman */}
+            <Box display="flex" alignItems="center" gap={1}>
+              <Typography fontSize={13} color="text.secondary">
+                Tampilkan
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPage(1);
+                }}
+                sx={{ width: 75 }}
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Typography fontSize={13} color="text.secondary">
+                dari <strong>{filteredData.length}</strong> data
+              </Typography>
+            </Box>
+
+            {/* Kanan: info halaman + navigasi */}
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Typography fontSize={13} color="text.secondary">
+                Hal. <strong>{page}</strong> / <strong>{totalPages}</strong>
+              </Typography>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, val) => setPage(val)}
+                color="primary"
+                shape="rounded"
+                size={isMobile ? "small" : "medium"}
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          </Box>
+        )}
+
         {/* ── DIALOG TAMBAH / EDIT ── */}
         <Dialog
           open={dialogOpen}
@@ -973,7 +1091,7 @@ export default function DataAbsensi() {
           <Divider />
           <DialogContent dividers>
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
-              {/* Pegawai */}
+              {/* Pilih pegawai (tambah) / tampil nama (edit) */}
               {!editId ? (
                 <TextField
                   select
@@ -1007,7 +1125,7 @@ export default function DataAbsensi() {
                 />
               )}
 
-              {/* Tanggal */}
+              {/* Tanggal (hanya saat tambah) */}
               {!editId && (
                 <TextField
                   type="date"
@@ -1022,31 +1140,27 @@ export default function DataAbsensi() {
                 />
               )}
 
-              {/* Status — hanya Hadir, Izin, Sakit */}
+              {/* Dropdown status */}
               <TextField
                 select
                 fullWidth
                 size="small"
-                label="Status *"
+                label="Status"
                 value={form.status}
                 onChange={(e) =>
                   setForm({ ...form, status: e.target.value, shift_kode: "" })
                 }
-                disabled={!!(editId && form.status === "Cuti")}
+                disabled={!!editId}
               >
-                {/* ✅ Hanya 3 opsi untuk tambah manual */}
                 {!editId && <MenuItem value="Hadir">Hadir</MenuItem>}
                 <MenuItem value="Izin">Izin</MenuItem>
                 <MenuItem value="Sakit">Sakit</MenuItem>
-                {editId && form.status === "Cuti" && (
-                  <MenuItem value="Cuti">Cuti</MenuItem>
-                )}
-                {editId && form.status === "Hadir" && (
-                  <MenuItem value="Hadir">Hadir</MenuItem>
+                {editId && (
+                  <MenuItem value={form.status}>{form.status}</MenuItem>
                 )}
               </TextField>
 
-              {/* Info cuti dari jadwal */}
+              {/* Info Cuti dari jadwal */}
               {editId && form.status === "Cuti" && (
                 <Box
                   sx={{
@@ -1064,8 +1178,24 @@ export default function DataAbsensi() {
                 </Box>
               )}
 
-              {/* ✅ Shift — hanya muncul untuk Hadir saat tambah */}
-              {/* ✅ Ganti input shift dengan info otomatis */}
+              {/* Info status tidak dapat diubah saat edit */}
+              {editId && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    backgroundColor: "#f5f5f5",
+                    border: "1px solid #e0e0e0",
+                  }}
+                >
+                  <Typography fontSize={12} color="text.secondary">
+                    Status tidak dapat diubah. Hanya keterangan yang dapat
+                    diperbarui.
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Info jadwal shift otomatis (status Hadir + tambah) */}
               {form.status === "Hadir" && !editId && (
                 <Box>
                   {loadingShift ? (
@@ -1081,7 +1211,6 @@ export default function DataAbsensi() {
                       </Typography>
                     </Box>
                   ) : shiftOtomatis ? (
-                    // 🔥 Tampilkan info shift yang ditemukan
                     <Box
                       sx={{
                         p: 1.5,
@@ -1108,7 +1237,6 @@ export default function DataAbsensi() {
                       </Typography>
                     </Box>
                   ) : form.pegawai_id && form.tanggal ? (
-                    // 🔥 Tidak ada jadwal
                     <Box
                       sx={{
                         p: 1.5,
@@ -1124,7 +1252,6 @@ export default function DataAbsensi() {
                     </Box>
                   ) : null}
 
-                  {/* Info untuk admin */}
                   {shiftOtomatis && (
                     <Box
                       sx={{
@@ -1164,7 +1291,7 @@ export default function DataAbsensi() {
                 }
               />
 
-              {/* Upload surat MC untuk Sakit */}
+              {/* Upload surat MC (hanya status Sakit + tambah) */}
               {form.status === "Sakit" && !editId && (
                 <>
                   <Divider />
@@ -1310,7 +1437,7 @@ export default function DataAbsensi() {
           </DialogActions>
         </Dialog>
 
-        {/* SNACKBAR */}
+        {/* ── SNACKBAR ── */}
         <Snackbar
           open={snackbar.open}
           autoHideDuration={3500}

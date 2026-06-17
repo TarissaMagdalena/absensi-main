@@ -93,7 +93,7 @@ router.get("/rekap-bulanan", async (req, res) => {
          SUM(a.status = 'Sakit')     AS sakit,
          SUM(a.status = 'Izin')      AS izin,
          SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alfa')      AS Alfa,
+         SUM(a.status = 'Alfa')      AS alfa,
          COUNT(*)                    AS total
        FROM pegawai p
        LEFT JOIN absensi a
@@ -128,7 +128,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
          SUM(a.status = 'Sakit')     AS sakit,
          SUM(a.status = 'Izin')      AS izin,
          SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alfa')      AS Alfa,
+         SUM(a.status = 'Alfa')      AS alfa,
          COUNT(*)                    AS total
        FROM pegawai p
        LEFT JOIN absensi a
@@ -160,7 +160,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         { key: "sakit", width: 10 },
         { key: "izin", width: 10 },
         { key: "cuti", width: 10 },
-        { key: "Alfa", width: 10 },
+        { key: "alfa", width: 10 },
         { key: "total", width: 12 },
       ];
 
@@ -225,7 +225,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         sakit: { argb: toArgb("#e1f5fe"), txt: toArgb("#0277bd") },
         izin: { argb: "FFF5F5F5", txt: "FF555555" },
         cuti: { argb: toArgb("#f3e5f5"), txt: toArgb("#6a1b9a") },
-        Alfa: { argb: toArgb("#ffebee"), txt: toArgb("#c62828") },
+        alfa: { argb: toArgb("#ffebee"), txt: toArgb("#c62828") },
       };
 
       data.forEach((r, i) => {
@@ -238,7 +238,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
           Number(r.sakit),
           Number(r.izin),
           Number(r.cuti),
-          Number(r.Alfa),
+          Number(r.alfa),
           Number(r.total),
         ]);
         row.height = 18;
@@ -276,7 +276,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
               "sakit",
               "izin",
               "cuti",
-              "Alfa",
+              "alfa",
             ];
             const sc = STATUS_COLORS[keys[colNum - 4]];
             cell.fill = {
@@ -300,7 +300,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         data.reduce((s, r) => s + Number(r.sakit), 0),
         data.reduce((s, r) => s + Number(r.izin), 0),
         data.reduce((s, r) => s + Number(r.cuti), 0),
-        data.reduce((s, r) => s + Number(r.Alfa), 0),
+        data.reduce((s, r) => s + Number(r.alfa), 0),
         data.reduce((s, r) => s + Number(r.total), 0),
       ]);
       totalRow.eachCell((cell) => {
@@ -397,7 +397,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       sakit: 55,
       izin: 55,
       cuti: 55,
-      Alfa: 55,
+      alfa: 55,
     };
     colW.total = CW - Object.values(colW).reduce((a, b) => a + b, 0);
 
@@ -417,7 +417,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       { k: "sakit", l: "Sakit", align: "center" },
       { k: "izin", l: "Izin", align: "center" },
       { k: "cuti", l: "Cuti", align: "center" },
-      { k: "Alfa", l: "Alfa", align: "center" },
+      { k: "alfa", l: "Alfa", align: "center" },
       { k: "total", l: "Total", align: "center" },
     ];
 
@@ -459,7 +459,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         ["sakit", "#0277bd"],
         ["izin", "#555555"],
         ["cuti", "#6a1b9a"],
-        ["Alfa", "#c62828"],
+        ["alfa", "#c62828"],
       ].forEach(([k, clr]) => {
         doc
           .fillColor(clr)
@@ -481,31 +481,13 @@ router.get("/rekap-bulanan/download", async (req, res) => {
     });
 
     // ── Baris TOTAL ───────────────────────────────────────────────────────
-    const totalHadir = data.reduce(
-      (s, r) => s + (r.status === "Hadir" ? 1 : 0),
-      0,
-    );
-    const totalTerlambat = data.reduce(
-      (s, r) => s + (r.status === "Terlambat" ? 1 : 0),
-      0,
-    );
-    const totalSakit = data.reduce(
-      (s, r) => s + (r.status === "Sakit" ? 1 : 0),
-      0,
-    );
-    const totalIzin = data.reduce(
-      (s, r) => s + (r.status === "Izin" ? 1 : 0),
-      0,
-    );
-    const totalCuti = data.reduce(
-      (s, r) => s + (r.status === "Cuti" ? 1 : 0),
-      0,
-    );
-    const totalAlfa = data.reduce(
-      (s, r) => s + (r.status === "Alfa" ? 1 : 0),
-      0,
-    );
-    const totalSemua = data.length;
+    const totalHadir = data.reduce((s, r) => s + Number(r.hadir), 0);
+    const totalTerlambat = data.reduce((s, r) => s + Number(r.terlambat), 0);
+    const totalSakit = data.reduce((s, r) => s + Number(r.sakit), 0);
+    const totalIzin = data.reduce((s, r) => s + Number(r.izin), 0);
+    const totalCuti = data.reduce((s, r) => s + Number(r.cuti), 0);
+    const totalAlfa = data.reduce((s, r) => s + Number(r.alfa), 0);
+    const totalSemua = data.reduce((s, r) => s + Number(r.total), 0);
 
     // Cek page break sebelum baris total
     if (rowY + ROW_H > doc.page.height - 50) {
@@ -533,7 +515,7 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       ["sakit", String(totalSakit), "#0277bd"],
       ["izin", String(totalIzin), "#555555"],
       ["cuti", String(totalCuti), "#6a1b9a"],
-      ["Alfa", String(totalAlfa), "#c62828"],
+      ["alfa", String(totalAlfa), "#c62828"],
     ].forEach(([k, val, clr]) => {
       doc
         .fillColor(clr)
@@ -673,7 +655,7 @@ router.get("/download", async (req, res) => {
     const sakit = data.filter((d) => d.status === "Sakit").length;
     const izin = data.filter((d) => d.status === "Izin").length;
     const cuti = data.filter((d) => d.status === "Cuti").length;
-    const Alfa = data.filter((d) => d.status === "Alfa").length;
+    const alfa = data.filter((d) => d.status === "Alfa").length;
     const total = data.length;
 
     const rekY = infoY + 88;
@@ -695,7 +677,7 @@ router.get("/download", async (req, res) => {
       { label: "Izin", value: izin, color: "#1565c0" },
       { label: "Sakit", value: sakit, color: "#6a1b9a" },
       { label: "Cuti", value: cuti, color: "#00695c" },
-      { label: "Alfa", value: Alfa, color: "#c62828" },
+      { label: "Alfa", value: alfa, color: "#c62828" },
       { label: "Total", value: total, color: "#333333" },
     ];
 

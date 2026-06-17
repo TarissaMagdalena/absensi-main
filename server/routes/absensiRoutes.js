@@ -222,33 +222,39 @@ router.get("/dashboard-summary", async (req, res) => {
 });
 
 // ================= RIWAYAT PER PEGAWAI =================
+// Di absensiRoutes.js
 router.get("/rekapan/:pegawai_id", async (req, res) => {
   try {
+    const { start, end } = req.query;
+
+    // Jika ada parameter start & end, gunakan sebagai filter
+    // Jika tidak, ambil semua data
+    const whereClause =
+      start && end
+        ? "WHERE a.pegawai_id = ? AND a.tanggal BETWEEN ? AND ?"
+        : "WHERE a.pegawai_id = ?";
+    const params =
+      start && end
+        ? [req.params.pegawai_id, start, end]
+        : [req.params.pegawai_id];
+
     const [data] = await db.query(
       `SELECT 
         a.id,
         DATE_FORMAT(a.tanggal, '%Y-%m-%d') as tanggal,
-        a.jam_masuk,
-        a.jam_pulang,
-        a.status,
+        a.jam_masuk, a.jam_pulang, a.status,
         COALESCE(a.shift_kode, j.shift_kode) as shift_kode,
-        a.status_area,
-        a.status_area_pulang,
-        a.keterangan,
-        a.keterangan_pulang,
-        a.latitude,
-        a.longitude,
-        a.distance,
-        a.accuracy,
-        a.surat_mc,
-        a.is_from_jadwal
+        a.status_area, a.status_area_pulang,
+        a.keterangan, a.keterangan_pulang,
+        a.latitude, a.longitude, a.distance, a.accuracy,
+        a.surat_mc, a.is_from_jadwal
        FROM absensi a
        LEFT JOIN jadwal_pegawai j
          ON a.pegawai_id = j.pegawai_id
          AND DATE(a.tanggal) = DATE(j.tanggal)
-       WHERE a.pegawai_id = ?
+       ${whereClause}
        ORDER BY a.tanggal DESC`,
-      [req.params.pegawai_id],
+      params,
     );
     res.json(data);
   } catch (err) {
