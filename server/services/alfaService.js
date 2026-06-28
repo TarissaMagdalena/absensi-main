@@ -1,19 +1,11 @@
 // server/services/AlfaService.js
 import { db } from "../db.js";
 
-/**
- * Proses Alfa untuk satu tanggal tertentu.
- *
- * @param {string} tanggal        - format YYYY-MM-DD
- * @param {boolean} hariIni       - true = cek jam masuk shift + toleransi sebelum insert
- * @param {number} toleransiMenit - menit toleransi setelah jam masuk (default 30)
- */
 export async function processAlfa(
   tanggal,
   hariIni = false,
   toleransiMenit = 30,
 ) {
-  // ── 1. Ambil semua jadwal kerja yang belum ada absensinya ─────────────────
   const [kandidat] = await db.query(
     `SELECT
        j.pegawai_id,
@@ -34,64 +26,43 @@ export async function processAlfa(
 
   if (kandidat.length === 0) return { inserted: 0, detail: [] };
 
-  // ── 2. Waktu sekarang (WIB) ───────────────────────────────────────────────
   const sekarang = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }),
   );
 
-  // ── 3. Filter berdasarkan kondisi ─────────────────────────────────────────
   const toInsert = kandidat.filter((k) => {
     if (hariIni) {
-      // Hari ini: sudah lewat jam PULANG + toleransiMenit (default 30 menit)
-      // Kalau tidak ada jam_pulang, pakai jam_masuk + 8 jam sebagai fallback
-      const jamAcuan = k.jam_pulang || null;
-      if (!jamAcuan) return false; // belum bisa ditentukan, skip dulu
+      // Gunakan jam PULANG + toleransi, bukan jam masuk
+      // Alfa hanya ditandai setelah shift benar-benar selesai
+      if (!k.jam_pulang) return false;
 
-      const [hh, mm] = jamAcuan.slice(0, 5).split(":").map(Number);
+      const [hh, mm] = k.jam_pulang.slice(0, 5).split(":").map(Number);
       const batas = new Date(sekarang);
       batas.setHours(hh, mm + toleransiMenit, 0, 0);
 
-      // Handle shift malam: jam pulang < jam masuk → pulang dini hari besok
+      // Handle shift malam: jam pulang < jam masuk (misal masuk 19:00, pulang 07:00)
+      // Jam pulang dini hari berarti shift selesai besok paginya
       if (k.jam_masuk) {
         const [hm] = k.jam_masuk.slice(0, 5).split(":").map(Number);
         if (hh < hm) {
+          // Shift malam: jam pulang di hari berikutnya
           batas.setDate(batas.getDate() + 1);
         }
       }
 
       return sekarang >= batas;
     } else {
-      // Kemarin: sudah lewat jam PULANG shift + 3 jam
-      if (!k.jam_pulang) return true;
-      const [hp, mp] = k.jam_pulang.slice(0, 5).split(":").map(Number);
-
-      // Rekonstruksi datetime jam pulang
-      const jamPulang = new Date(sekarang);
-      jamPulang.setDate(jamPulang.getDate() - 1); // mulai dari kemarin
-      jamPulang.setHours(hp, mp, 0, 0);
-
-      // Shift malam: jam pulang < jam masuk → pulang dini hari INI
-      if (k.jam_masuk) {
-        const [hm] = k.jam_masuk.slice(0, 5).split(":").map(Number);
-        if (hp < hm) {
-          jamPulang.setDate(jamPulang.getDate() + 1);
-        }
-      }
-
-      // Alfa jika sekarang sudah lewat jam pulang + 3 jam
-      const batasAlfa = new Date(jamPulang);
-      batasAlfa.setHours(batasAlfa.getHours() + 3);
-      return sekarang >= batasAlfa;
+      // Tanggal masa lalu: langsung insert semua kandidat
+      return true;
     }
   });
 
   if (toInsert.length === 0) return { inserted: 0, detail: [] };
 
-  // ── 4. Insert Alfa ───────────────────────────────────────────────────────
   const conn = await db.getConnection();
   await conn.beginTransaction();
-
   const inserted = [];
+
   try {
     for (const k of toInsert) {
       // Double-check race condition
@@ -115,10 +86,12 @@ export async function processAlfa(
     }
 
     await conn.commit();
-    console.log(
-      `[Alfa] ${tanggal} → ${inserted.length} Alfa diinsert:`,
-      inserted.map((i) => i.nama).join(", ") || "-",
-    );
+    if (inserted.length > 0) {
+      console.log(
+        `[Alfa] ${tanggal} → ${inserted.length} diinsert:`,
+        inserted.map((i) => i.nama).join(", "),
+      );
+    }
     return { inserted: inserted.length, detail: inserted };
   } catch (err) {
     await conn.rollback();

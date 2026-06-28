@@ -51,10 +51,10 @@ function toDateStr(date) {
   return date.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
 
-// ================= CRON 1: Setiap jam (cek Alfa shift yang baru selesai) =====
-// Menangkap:
-//   - Shift pagi/siang hari ini yang sudah lewat jam masuk + 3 jam
-//   - Shift malam kemarin yang baru selesai pagi ini
+// ================= CRON 1: Setiap jam — cek Alfa shift yang sudah selesai ====
+// Alfa ditandai 30 menit setelah jam PULANG shift, bukan jam masuk.
+// Logika: pegawai dianggap Alfa hanya setelah shiftnya benar-benar selesai,
+// untuk menghindari false-positive pada pegawai yang terlambat tapi tetap hadir.
 cron.schedule(
   "0 * * * *",
   async () => {
@@ -69,15 +69,18 @@ cron.schedule(
     );
 
     try {
-      // Hari ini: toleransi 3 jam (180 menit) setelah jam masuk
-      const r1 = await processAlfa(hariIniStr, true, 180);
+      // Hari ini: Alfa ditandai 30 menit setelah jam PULANG shift
+      // AlfaService (hariIni=true) akan filter: sekarang >= jam_pulang + 30 menit
+      const r1 = await processAlfa(hariIniStr, true, 30);
       if (r1.inserted > 0)
         console.log(`[CRON Jam] ✅ Hari ini: ${r1.inserted} Alfa`);
 
-      // Kemarin: untuk shift malam yang baru selesai pagi ini
+      // Kemarin: menangkap shift malam yang jam pulangnya dini hari hari ini
+      // (misal shift MK: masuk 23:00, pulang 07:00 → baru selesai pagi ini)
+      // hariIni=false → semua kandidat kemarin yang belum absen langsung Alfa
       const r2 = await processAlfa(kemarinStr, false);
       if (r2.inserted > 0)
-        console.log(`[CRON Jam] ✅ Kemarin: ${r2.inserted} Alfa`);
+        console.log(`[CRON Jam] ✅ Kemarin (shift malam): ${r2.inserted} Alfa`);
     } catch (err) {
       console.error("[CRON Jam] ❌ Error:", err.message);
     }
@@ -85,9 +88,10 @@ cron.schedule(
   { timezone: "Asia/Jakarta" },
 );
 
-// ================= CRON 2: Tengah malam (cleanup final kemarin) ===============
-// Pastikan semua yang Alfa kemarin sudah tercatat
-// (backup dari cron setiap jam, untuk yang terlewat)
+// ================= CRON 2: Tengah malam — cleanup final kemarin ==============
+// Berjalan jam 00:00 WIB sebagai jaring pengaman.
+// Memastikan seluruh pegawai yang tidak hadir kemarin sudah tercatat Alfa,
+// termasuk yang mungkin terlewat oleh cron per jam.
 cron.schedule(
   "0 0 * * *",
   async () => {
@@ -97,11 +101,11 @@ cron.schedule(
 
     console.log(`[CRON Tengah Malam] Cleanup Alfa ${kemarinStr}...`);
     try {
-      // hariIni = false → semua kandidat kemarin langsung Alfa
+      // hariIni=false → langsung insert semua kandidat yang belum absen kemarin
       const result = await processAlfa(kemarinStr, false);
       if (result.inserted > 0) {
         console.log(
-          `[CRON Tengah Malam] ✅ ${result.inserted} Alfa diinsert:`,
+          `[CRON Tengah Malam] ✅ ${result.inserted} Alfa:`,
           result.detail.map((d) => d.nama).join(", "),
         );
       } else {

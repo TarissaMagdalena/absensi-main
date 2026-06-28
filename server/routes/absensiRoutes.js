@@ -89,20 +89,57 @@ router.get("/hari-ini", async (req, res) => {
   }
 });
 
-// ================= PROSES Alfa OTOMATIS =================
+// ================= PROSES Alfa OTOMATIS (dengan catch-up) =================
 router.post("/proses-Alfa", async (req, res) => {
   try {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Jakarta",
     });
-    const result = await processAlfa(today, true, 30);
+
+    // Cari tanggal terakhir ada data absensi di database
+    const [[lastRow]] = await db.query(
+      `SELECT DATE_FORMAT(MAX(tanggal), '%Y-%m-%d') as last_date FROM absensi`,
+    );
+    const lastDate = lastRow?.last_date;
+
+    let totalInserted = 0;
+    const allDetail = [];
+
+    // ── Catch-up: proses semua tanggal yang terlewat ──────────────────────
+    if (lastDate && lastDate < today) {
+      const cursor = new Date(lastDate + "T00:00:00+07:00");
+      cursor.setDate(cursor.getDate() + 1); // mulai dari hari setelah lastDate
+
+      const todayDate = new Date(today + "T00:00:00+07:00");
+
+      while (cursor < todayDate) {
+        const tglStr = cursor.toLocaleDateString("en-CA", {
+          timeZone: "Asia/Jakarta",
+        });
+        // hariIni=false → tanggal masa lalu, langsung insert semua kandidat
+        const result = await processAlfa(tglStr, false);
+        totalInserted += result.inserted;
+        allDetail.push(
+          ...result.detail.map((d) => ({ ...d, tanggal: tglStr })),
+        );
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    // ── Proses hari ini (dengan toleransi 30 menit setelah jam masuk) ─────
+    const hasilHariIni = await processAlfa(today, true, 30);
+    totalInserted += hasilHariIni.inserted;
+    allDetail.push(
+      ...hasilHariIni.detail.map((d) => ({ ...d, tanggal: today })),
+    );
+
     res.json({
       message:
-        result.inserted > 0
-          ? `${result.inserted} pegawai ditandai Alfa`
-          : "Tidak ada Alfa baru hari ini",
-      inserted: result.inserted,
-      detail: result.detail,
+        totalInserted > 0
+          ? `${totalInserted} pegawai ditandai Alfa`
+          : "Tidak ada Alfa baru",
+      inserted: totalInserted,
+      detail: allDetail,
     });
   } catch (err) {
     console.error("Proses Alfa error:", err);
