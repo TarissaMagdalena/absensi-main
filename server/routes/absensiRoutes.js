@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// ABSENSI ROUTES — Semua endpoint API absensi
+// ═══════════════════════════════════════════════════════════════
 import express from "express";
 import multer from "multer";
 import path from "path";
@@ -40,6 +43,18 @@ const upload = multer({
 
 // ================= ABSEN MASUK =================
 router.post("/masuk", absenMasuk);
+// Logic lengkap ada di absensiController.js:
+//   1. Validasi accuracy < 5 → is_suspicious = 1
+//   2. getWIBTime() → waktu dari server eksternal
+//   3. Cek sudah absen hari ini?
+//   4. Ambil jadwal shift
+//   5. Validasi shift bukan L/CT
+//   6. Validasi tidak terlalu awal (> 120 menit sebelum shift)
+//   7. Validasi tidak setelah jam pulang
+//   8. Hitung keterangan: Hadir/Terlambat + detail
+//   9. Hitung jarak dari kantor (Haversine)
+//  10. Validasi jarak <= 100m
+//  11. INSERT ke tabel absensi
 
 // ================= ABSEN PULANG =================
 router.post("/pulang", absenPulang);
@@ -217,7 +232,7 @@ router.get("/dashboard-summary", async (req, res) => {
       "SELECT COUNT(*) as total FROM absensi WHERE tanggal = ? AND status = 'Alfa'",
       [tanggal],
     );
-
+    // Status setiap pegawai hari ini (untuk daftar pegawai di dashboard)
     const [pegawaiHariIni] = await db.query(
       `SELECT
          p.nama,
@@ -233,7 +248,7 @@ router.get("/dashboard-summary", async (req, res) => {
        ORDER BY p.nama ASC`,
       [tanggal, tanggal],
     );
-
+    // Aktivitas terbaru hari ini — LIMIT 10
     const [aktivitas] = await db.query(
       `SELECT p.nama, a.status, a.jam_masuk, a.tanggal
        FROM absensi a
@@ -302,46 +317,57 @@ router.get("/rekapan/:pegawai_id", async (req, res) => {
 // ================= TAMBAH ABSENSI MANUAL (admin) =================
 // upload.single("surat_mc") → handle multipart/form-data dari frontend
 router.post("/manual", upload.single("surat_mc"), async (req, res) => {
-  const { pegawai_id, tanggal, status, keterangan, potong_cuti, shift_kode } =
-    req.body;
-  const surat_mc = req.file ? req.file.filename : null;
-  const keteranganFinal = keterangan || null;
-
-  if (!pegawai_id || !tanggal || !status) {
-    if (req.file) fs.unlinkSync(req.file.path);
-    return res
-      .status(400)
-      .json({ message: "pegawai_id, tanggal, dan status wajib diisi" });
-  }
-
-  const statusValid = ["Izin", "Sakit", "Cuti", "Hadir"];
-  if (!statusValid.includes(status)) {
-    if (req.file) fs.unlinkSync(req.file.path);
-    return res
-      .status(400)
-      .json({ message: "Status harus Izin, Sakit, atau Cuti" });
-  }
-
-  const conn = await db.getConnection();
-  await conn.beginTransaction();
-
   try {
-    const [existing] = await conn.query(
-      "SELECT id FROM absensi WHERE pegawai_id = ? AND tanggal = ? LIMIT 1",
-      [pegawai_id, tanggal],
-    );
-    if (existing.length > 0) {
-      await conn.rollback();
-      conn.release();
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(409).json({
-        message: "Sudah ada data absensi untuk pegawai ini di tanggal tersebut",
+    const { pegawai_id, tanggal, status, shift_kode, keterangan } = req.body;
+    const suratMc = req.file?.filename || null;
+
+    // ── Validasi wajib ────────────────────────────────────────────
+    if (!pegawai_id || !tanggal || !status) {
+      return res
+        .status(400)
+        .json({ message: "pegawai_id, tanggal, dan status wajib diisi" });
+    }
+
+    // ── ✅ Validasi backdate ───────────────────────────────────────
+    // Ambil tanggal hari ini dalam WIB dari server (tidak dari perangkat)
+    let hariIni;
+    try {
+      const wib = await getWIBTime();
+      hariIni = formatWIB(wib).today; // "YYYY-MM-DD"
+    } catch {
+      hariIni = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Jakarta",
       });
     }
 
+    // Tanggal yang diinput tidak boleh sebelum hari ini
+    if (tanggal < hariIni) {
+      return res.status(400).json({
+        message: `Tidak dapat menginput absensi mundur. Tanggal minimal adalah ${hariIni}.`,
+      });
+    }
+
+    // Tanggal tidak boleh lebih dari hari ini (masa depan)
+    if (tanggal > hariIni) {
+      return res.status(400).json({
+        message: "Tidak dapat menginput absensi untuk tanggal yang belum tiba.",
+      });
+    }
+
+    // ── Cek duplikasi absensi ─────────────────────────────────────
+    const [cek] = await db.query(
+      "SELECT id FROM absensi WHERE pegawai_id = ? AND tanggal = ?",
+      [pegawai_id, tanggal],
+    );
+    if (cek.length > 0) {
+      return res.status(400).json({
+        message: "Pegawai sudah memiliki data absensi di tanggal ini",
+      });
+    }
+
+    // ── Ambil waktu saat ini dari server ─────────────────────────
     let jam_masuk_manual = null;
     if (status === "Hadir") {
-      const { getWIBTime, formatWIB } = await import("../utils/getTime.js");
       try {
         const realTime = await getWIBTime();
         jam_masuk_manual = formatWIB(realTime).now;
@@ -353,44 +379,27 @@ router.post("/manual", upload.single("surat_mc"), async (req, res) => {
       }
     }
 
-    await conn.query(
-      `INSERT INTO absensi 
-   (pegawai_id, tanggal, jam_masuk, status, keterangan, surat_mc, is_from_jadwal, shift_kode, tipe)
-   VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+    // ── INSERT absensi manual ─────────────────────────────────────
+    await db.query(
+      `
+      INSERT INTO absensi
+        (pegawai_id, tanggal, status, keterangan, shift_kode, jam_masuk, surat_mc, is_from_jadwal)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+    `,
       [
         pegawai_id,
         tanggal,
-        jam_masuk_manual, // ← tambah jam_masuk
         status,
-        keteranganFinal || null,
-        surat_mc,
+        keterangan,
         shift_kode || null,
-        status === "Hadir" ? "Hadir" : status, // ← tambah tipe
+        jam_masuk_manual,
+        suratMc,
       ],
     );
-    if (status === "Cuti" && potong_cuti) {
-      const tahun = tanggal.substring(0, 4);
-      const [upd] = await conn.query(
-        `UPDATE jatah_cuti SET terpakai = terpakai + 1 WHERE pegawai_id = ? AND tahun = ?`,
-        [pegawai_id, tahun],
-      );
-      if (upd.affectedRows === 0) {
-        await conn.query(
-          `INSERT INTO jatah_cuti (pegawai_id, tahun, jatah, terpakai) VALUES (?, ?, 12, 1)`,
-          [pegawai_id, tahun],
-        );
-      }
-    }
 
-    await conn.commit();
-    res.status(201).json({ message: "Absensi berhasil ditambahkan" });
+    res.json({ message: `Absensi ${status} berhasil ditambahkan` });
   } catch (err) {
-    await conn.rollback();
-    if (req.file) fs.unlinkSync(req.file.path);
-    console.error("Tambah absensi manual error:", err);
     res.status(500).json({ message: err.message });
-  } finally {
-    conn.release();
   }
 });
 
@@ -420,13 +429,14 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // ── Cek apakah ini cuti dari jadwal ──────────────────────────
     const [[absensi]] = await db.query(
       "SELECT status, is_from_jadwal, surat_mc FROM absensi WHERE id = ?",
       [id],
     );
     if (!absensi)
       return res.status(404).json({ message: "Data absensi tidak ditemukan" });
-
+    // Blokir penghapusan cuti yang berasal dari jadwal shift
     if (absensi.status === "Cuti" && absensi.is_from_jadwal === 1) {
       return res.status(403).json({
         message:

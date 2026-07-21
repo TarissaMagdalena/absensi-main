@@ -1,11 +1,23 @@
-// server/services/AlfaService.js
+// ═══════════════════════════════════════════════════════════════
+// ALFA SERVICE — Deteksi dan penandaan ketidakhadiran otomatis
+// Parameter:
+//   tanggal        = "YYYY-MM-DD" tanggal yang akan diproses
+//   hariIni        = boolean, true = hari ini (ada filter waktu)
+//                             false = tanggal lalu (langsung insert semua)
+//   toleransiMenit = menit setelah jam pulang sebelum ditandai Alfa (default 30)
+// ═══════════════════════════════════════════════════════════════
+
 import { db } from "../db.js";
 
 export async function processAlfa(
   tanggal,
   hariIni = false,
-  toleransiMenit = 30,
+  toleransiMenit = 30, // ← default: tunggu 30 menit setelah jam pulang
 ) {
+  // ════════════════════════════════════════════════════════════
+  // LANGKAH 1: Cari kandidat Alfa
+  // Kandidat = punya jadwal kerja TAPI belum ada di tabel absensi
+  // ════════════════════════════════════════════════════════════
   const [kandidat] = await db.query(
     `SELECT
        j.pegawai_id,
@@ -26,22 +38,25 @@ export async function processAlfa(
 
   if (kandidat.length === 0) return { inserted: 0, detail: [] };
 
+  // ════════════════════════════════════════════════════════════
+  // LANGKAH 2: Filter kandidat yang memenuhi syarat waktu
+  //   Hari ini:    hanya insert jika sudah lewat jam pulang + toleransi
+  //   Tanggal lalu: langsung insert semua (tidak perlu filter waktu)
+  // ════════════════════════════════════════════════════════════
   const sekarang = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }),
   );
 
   const toInsert = kandidat.filter((k) => {
     if (hariIni) {
-      // Gunakan jam PULANG + toleransi, bukan jam masuk
-      // Alfa hanya ditandai setelah shift benar-benar selesai
+      // ── Filter waktu untuk hari ini ────────────────────────────
+      // Alfa hanya ditandai SETELAH shift selesai + toleransi
       if (!k.jam_pulang) return false;
-
+      // Hitung batas waktu: jam_pulang + toleransiMenit
       const [hh, mm] = k.jam_pulang.slice(0, 5).split(":").map(Number);
       const batas = new Date(sekarang);
       batas.setHours(hh, mm + toleransiMenit, 0, 0);
-
-      // Handle shift malam: jam pulang < jam masuk (misal masuk 19:00, pulang 07:00)
-      // Jam pulang dini hari berarti shift selesai besok paginya
+      // ── Handle shift malam ──────────────────────────────────────
       if (k.jam_masuk) {
         const [hm] = k.jam_masuk.slice(0, 5).split(":").map(Number);
         if (hh < hm) {
@@ -59,6 +74,12 @@ export async function processAlfa(
 
   if (toInsert.length === 0) return { inserted: 0, detail: [] };
 
+  // ════════════════════════════════════════════════════════════
+  // LANGKAH 3: INSERT Alfa dengan transaction
+  // Menggunakan transaction untuk:
+  //   1. Double-check race condition sebelum insert
+  //   2. Rollback jika terjadi error di tengah proses
+  // ════════════════════════════════════════════════════════════
   const conn = await db.getConnection();
   await conn.beginTransaction();
   const inserted = [];
@@ -84,7 +105,7 @@ export async function processAlfa(
         shift_kode: k.shift_kode,
       });
     }
-
+    // ── INSERT Alfa ───────────────────────────────────────────
     await conn.commit();
     if (inserted.length > 0) {
       console.log(

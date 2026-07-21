@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR PEGAWAI — Navigasi kiri halaman pegawai
+// ═══════════════════════════════════════════════════════════════
 import { useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -20,6 +23,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import HistoryIcon from "@mui/icons-material/History";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 const DRAWER_WIDTH = 240;
@@ -29,6 +33,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
   const location = useLocation();
   const [dialogLogout, setDialogLogout] = useState(false);
 
+  // ── Baca data user dari localStorage ─────────────────────────
   const user = useMemo(() => {
     try {
       const stored = localStorage.getItem("user");
@@ -40,6 +45,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
 
   const iconStyle = { fontSize: 24, color: "#555" };
 
+  // ── Daftar menu pegawai ───────────────────────────────────────
   const menu = [
     {
       text: "Beranda",
@@ -52,19 +58,26 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
       path: "/rekapkehadiran",
     },
     {
+      text: "Pengajuan Cuti",
+      path: "/pengajuan-cuti",
+      icon: <EventBusyIcon />,
+    },
+    {
       text: "Pengaturan",
       icon: <SettingsIcon sx={iconStyle} />,
       path: "/pengaturan",
     },
   ];
 
+  // ── Navigasi + tutup sidebar mobile ──────────────────────────
   const handleNavigate = (path) => {
     navigate(path);
     if (isMobile && onClose) onClose();
   };
 
+  // ── Buka dialog konfirmasi logout ─────────────────────────────
   const handleLogout = () => setDialogLogout(true);
-
+  // ── Proses logout ─────────────────────────────────────────────
   const handleKonfirmasiLogout = () => {
     localStorage.removeItem("user");
     navigate("/");
@@ -99,6 +112,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
 
       <Divider />
 
+      {/* ── Profil Pegawai — tampilkan nama + NIK dari localStorage ── */}
       <List sx={{ overflowX: "hidden", py: 0.8 }}>
         <ListItemButton
           disableRipple
@@ -131,6 +145,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
 
       <Divider />
 
+      {/* ── Menu Navigasi ── */}
       <List sx={{ flexGrow: 1, overflowX: "hidden" }}>
         {menu.map((item, index) => {
           const active = location.pathname === item.path;
@@ -168,7 +183,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
       </List>
 
       <Divider />
-
+      {/* ── Tombol Keluar ── */}
       <List sx={{ overflowX: "hidden" }}>
         <ListItemButton
           onClick={handleLogout}
@@ -227,6 +242,7 @@ export default function SidebarPegawai({ open, isMobile, onClose }) {
         </Drawer>
       )}
 
+      {/* ── Dialog Konfirmasi Logout ── */}
       <Dialog
         open={dialogLogout}
         onClose={() => setDialogLogout(false)}

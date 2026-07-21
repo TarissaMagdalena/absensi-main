@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// LOGIN — Halaman login pintu masuk aplikasi
+// ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { apiFetch } from "../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -34,12 +37,14 @@ export default function Login() {
   const theme = useTheme();
   const _isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // ── State form ─────────────────────────────────────────────────
   const [namaPengguna, setNamaPengguna] = useState("");
   const [kataSandi, setKataSandi] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  // ── Submit form login ─────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     localStorage.removeItem("user");
@@ -67,6 +72,7 @@ export default function Login() {
   };
 
   return (
+    // ── Background halaman login ────────────────────────────────
     <Box
       sx={{
         minHeight: "100vh",
@@ -96,7 +102,7 @@ export default function Login() {
         E-Absen
       </Typography>
 
-      {/* Card login */}
+      {/* Card login di tengah layar */}
       <Paper
         elevation={0}
         sx={{

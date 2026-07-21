@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD ADMIN — Halaman beranda admin
+// ═══════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
 import { api, apiFetch } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -17,7 +20,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import WarningIcon from "@mui/icons-material/Warning";
 import HistoryIcon from "@mui/icons-material/History";
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helper: warna chip status pegawai ──────────────────────────────────────────────
 const getStatusColor = (status) => {
   const map = {
     Hadir: "success",
@@ -29,7 +32,7 @@ const getStatusColor = (status) => {
   };
   return map[status] || "default";
 };
-
+// ── Helper: format tanggal ke bahasa Indonesia ────────────────────────────────
 const formatTanggal = (tgl) =>
   new Date(tgl).toLocaleDateString("id-ID", {
     weekday: "long",
@@ -38,12 +41,14 @@ const formatTanggal = (tgl) =>
     year: "numeric",
   });
 
-// ─── Komponen utama ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// KOMPONEN UTAMA
+// ═══════════════════════════════════════════════════════════════
 export default function DashboardAdmin() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch summary dashboard
+  // Fetch summary dashboard: data ringkasan ────────────────────────
   useEffect(() => {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Jakarta",
@@ -55,7 +60,7 @@ export default function DashboardAdmin() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Proses Alfa otomatis
+  // Proses Alfa otomatis ────────────────────────────────────────────────
   useEffect(() => {
     apiFetch("http://localhost:5000/api/absensi/proses-Alfa", {
       method: "POST",
@@ -66,7 +71,7 @@ export default function DashboardAdmin() {
       })
       .catch(() => {});
   }, []);
-
+  // ── Loading state — tampilkan spinner ────────────────────────
   if (loading) {
     return (
       <DashboardLayoutAdmin>
@@ -82,7 +87,7 @@ export default function DashboardAdmin() {
     );
   }
 
-  // KPI cards config
+  // ── Konfigurasi KPI Cards ─────────────────────────────────────
   const kpiCards = [
     {
       label: "Total Pegawai",
@@ -188,7 +193,7 @@ export default function DashboardAdmin() {
           ))}
         </Box>
 
-        {/* ── Daftar Pegawai ─────────────────────────────────────────────── */}
+        {/* ── Daftar Pegawai Hari Ini ───────────────────────────────────────────── */}
         <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
           <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>
             Pegawai
@@ -248,6 +253,7 @@ export default function DashboardAdmin() {
                   "&:hover": { backgroundColor: "#dbeafe" },
                 }}
               >
+                {/* Ikon jam di kiri */}
                 <HistoryIcon sx={{ color: "#1976d2", flexShrink: 0 }} />
                 <Box minWidth={0}>
                   <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
@@ -265,9 +271,11 @@ export default function DashboardAdmin() {
                       {item.status}
                     </Typography>
                   </Typography>
+                  {/* Tanggal */}
                   <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
                     {formatTanggal(item.tanggal)}
                   </Typography>
+                  {/* Jam masuk */}
                   <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
                     Jam masuk: {item.jam_masuk ?? "-"}
                   </Typography>

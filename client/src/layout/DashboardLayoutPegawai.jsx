@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD LAYOUT PEGAWAI — Template/kerangka halaman pegawai
+// ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { Box, useMediaQuery, useTheme } from "@mui/material";
 import SidebarPegawai from "../components/SidebarPegawai";
@@ -11,6 +14,7 @@ export default function DashboardLayoutPegawai({ children }) {
   const [open, setOpen] = useState(false);
 
   return (
+    // ── Background seluruh halaman pegawai ───────────────────────
     <Box
       sx={{
         px: { xs: 3, md: 3 },
@@ -26,7 +30,7 @@ export default function DashboardLayoutPegawai({ children }) {
         isMobile={isMobile}
         onClose={() => setOpen(false)}
       />
-
+      {/* ── Area konten utama — identik dengan layout admin ── */}
       <Box
         component="main"
         sx={{
@@ -53,7 +57,7 @@ export default function DashboardLayoutPegawai({ children }) {
         }}
       >
         <Topbar onMenuClick={() => setOpen((prev) => !prev)} />
-
+        {/* ── Konten halaman pegawai ── */}
         <Box
           sx={{
             px: { xs: 2, md: 3 },

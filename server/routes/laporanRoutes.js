@@ -1,7 +1,11 @@
+// ═══════════════════════════════════════════════════════════════
+// LAPORAN ROUTES — Generate laporan absensi PDF dan Excel
+// ═══════════════════════════════════════════════════════════════
 import express from "express";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import { db } from "../db.js";
+import { getWIBTime, formatWIB } from "../utils/getTime.js";
 
 const router = express.Router();
 
@@ -27,6 +31,22 @@ function formatTanggalPendek(dateStr) {
   });
 }
 
+function fmtBulan(ym) {
+  return new Date(ym + "-01T00:00:00").toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+async function getHariIni() {
+  try {
+    const wib = await getWIBTime();
+    return formatWIB(wib).today;
+  } catch {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+  }
+}
+
 function getStatusColor(status) {
   const m = {
     Hadir: "#2e7d32",
@@ -44,27 +64,164 @@ function getAreaColor(area) {
   return area === "DALAM" ? "#2e7d32" : "#c62828";
 }
 
+const STATUS_COLORS = {
+  hadir: { argb: "FFe8f5e9", txt: "FF2e7d32" },
+  terlambat: { argb: "FFfff3e0", txt: "FFe65100" },
+  sakit: { argb: "FFe1f5fe", txt: "FF0277bd" },
+  izin: { argb: "FFf5f5f5", txt: "FF555555" },
+  cuti: { argb: "FFf3e5f5", txt: "FF6a1b9a" },
+  alfa: { argb: "FFffebee", txt: "FFc62828" },
+  libur: { argb: "FFf5f5f5", txt: "FF757575" },
+  total_kerja: { argb: "FFe3f2fd", txt: "FF0d47a1" },
+  total: { argb: "FFe8f0fe", txt: "FF0d47a1" },
+};
+
 const NON_HADIR = ["Izin", "Sakit", "Cuti", "Alfa"];
 
-// ── argb dari hex (#rrggbb) ──────────────────────────────────────────────────
-const toArgb = (hex) => "FF" + hex.replace("#", "").toUpperCase();
+// ─── queryRekap: SATU fungsi dipakai oleh UI dan download ────────────────────
+// Alfa = absensi Alfa di tabel + hari kerja di jadwal yang tidak ada absensinya
+// Ini konsisten dengan tampilan tab rekap per-pegawai di UI.
+async function queryRekap(start, end, hariIni) {
+  const endEfektif = end > hariIni ? hariIni : end;
 
-// ─── GET /api/laporan ─────────────────────────────────────────────────────────
+  const [data] = await db.query(
+    `
+    SELECT
+      p.id AS pegawai_id, p.nama, p.nik,
+
+      COALESCE((SELECT COUNT(*) FROM absensi a
+        WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+          AND a.status = 'Hadir'), 0) AS hadir,
+
+      COALESCE((SELECT COUNT(*) FROM absensi a
+        WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+          AND a.status = 'Terlambat'), 0) AS terlambat,
+
+      COALESCE((SELECT COUNT(*) FROM absensi a
+        WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+          AND a.status = 'Sakit'), 0) AS sakit,
+
+      COALESCE((SELECT COUNT(*) FROM absensi a
+        WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+          AND a.status = 'Izin'), 0) AS izin,
+
+      COALESCE((SELECT COUNT(*) FROM absensi a
+        WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+          AND a.status = 'Cuti'), 0) AS cuti,
+
+      -- ✅ Alfa = yang sudah tercatat di absensi + hari kerja yang tidak ada absensinya
+      -- Sama persis dengan logika di endpoint UI /rekap-bulanan
+      (
+        COALESCE((SELECT COUNT(*) FROM absensi a
+          WHERE a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
+            AND a.status = 'Alfa'), 0)
+        +
+        COALESCE((SELECT COUNT(DISTINCT DATE(j2.tanggal))
+          FROM jadwal_pegawai j2
+          WHERE j2.pegawai_id = p.id
+            AND DATE(j2.tanggal) BETWEEN ? AND ?
+            AND DATE(j2.tanggal) <= ?
+            AND j2.shift_kode NOT IN ('L','CT')
+            AND NOT EXISTS (
+              SELECT 1 FROM absensi a2
+              WHERE a2.pegawai_id = p.id AND a2.tanggal = DATE(j2.tanggal)
+            )), 0)
+      ) AS alfa,
+
+      COALESCE((SELECT COUNT(DISTINCT DATE(j3.tanggal))
+        FROM jadwal_pegawai j3
+        WHERE j3.pegawai_id = p.id
+          AND DATE(j3.tanggal) BETWEEN ? AND ?
+          AND DATE(j3.tanggal) <= ?
+          AND j3.shift_kode = 'L'), 0) AS libur,
+
+      COALESCE((SELECT COUNT(DISTINCT DATE(j4.tanggal))
+        FROM jadwal_pegawai j4
+        WHERE j4.pegawai_id = p.id
+          AND DATE(j4.tanggal) BETWEEN ? AND ?
+          AND DATE(j4.tanggal) <= ?
+          AND j4.shift_kode NOT IN ('L','CT')), 0) AS total_hari_kerja,
+
+      COALESCE((SELECT COUNT(DISTINCT DATE(j5.tanggal))
+        FROM jadwal_pegawai j5
+        WHERE j5.pegawai_id = p.id
+          AND DATE(j5.tanggal) BETWEEN ? AND ?
+          AND DATE(j5.tanggal) <= ?), 0) AS total_hari
+
+    FROM pegawai p
+    ORDER BY p.nama ASC
+    `,
+    [
+      start,
+      endEfektif, // hadir
+      start,
+      endEfektif, // terlambat
+      start,
+      endEfektif, // sakit
+      start,
+      endEfektif, // izin
+      start,
+      endEfektif, // cuti
+      start,
+      endEfektif, // alfa dari absensi
+      start,
+      endEfektif,
+      hariIni, // alfa dari jadwal tidak absen
+      start,
+      endEfektif,
+      hariIni, // libur
+      start,
+      endEfektif,
+      hariIni, // total_hari_kerja
+      start,
+      endEfektif,
+      hariIni, // total_hari
+    ],
+  );
+  return data;
+}
+
+// ─── GET /api/laporan — detail absensi satu pegawai ─────────────────────────
 router.get("/", async (req, res) => {
   const { pegawai_id, start, end } = req.query;
   if (!pegawai_id || !start || !end)
     return res.status(400).json({ message: "Parameter tidak lengkap" });
   try {
+    const hariIni = await getHariIni();
+    const endEfektif = end > hariIni ? hariIni : end;
+
     const [rows] = await db.query(
-      `SELECT DATE_FORMAT(tanggal,'%Y-%m-%d') as tanggal,
-              jam_masuk, jam_pulang, status, shift_kode,
-              status_area, status_area_pulang,
-              keterangan, keterangan_pulang
-       FROM absensi
-       WHERE pegawai_id = ? AND tanggal BETWEEN ? AND ?
-       ORDER BY tanggal ASC`,
-      [pegawai_id, start, end],
+      `SELECT
+         DATE_FORMAT(j.tanggal, '%Y-%m-%d') AS tanggal,
+         j.shift_kode, a.jam_masuk, a.jam_pulang,
+         a.status_area, a.status_area_pulang,
+         a.keterangan, a.keterangan_pulang,
+         CASE
+           WHEN a.status IS NOT NULL THEN a.status
+           WHEN j.shift_kode = 'L'   THEN 'Libur'
+           WHEN j.shift_kode = 'CT'  THEN 'Cuti'
+           ELSE 'Alfa'
+         END AS status
+       FROM jadwal_pegawai j
+       LEFT JOIN absensi a
+         ON a.pegawai_id = j.pegawai_id AND a.tanggal = DATE(j.tanggal)
+       WHERE j.pegawai_id = ? AND DATE(j.tanggal) BETWEEN ? AND ?
+       ORDER BY j.tanggal ASC`,
+      [pegawai_id, start, endEfektif],
     );
+
+    if (rows.length === 0) {
+      const [fallback] = await db.query(
+        `SELECT DATE_FORMAT(tanggal,'%Y-%m-%d') as tanggal,
+                jam_masuk, jam_pulang, status, shift_kode,
+                status_area, status_area_pulang, keterangan, keterangan_pulang
+         FROM absensi
+         WHERE pegawai_id = ? AND tanggal BETWEEN ? AND ?
+         ORDER BY tanggal ASC`,
+        [pegawai_id, start, end],
+      );
+      return res.json(fallback);
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -72,123 +229,207 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ─── GET /api/laporan/rekap-bulanan ──────────────────────────────────────────
+// ─── GET /api/laporan/rekap-bulanan — rekap semua pegawai (UI) ───────────────
 router.get("/rekap-bulanan", async (req, res) => {
   const { bulan } = req.query;
   if (!bulan)
     return res.status(400).json({ message: "Parameter bulan diperlukan" });
 
   const [year, month] = bulan.split("-");
-  const start = `${year}-${month}-01`;
-  const end = new Date(year, month, 0).toISOString().slice(0, 10);
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const end = new Date(year, Number(month), 0).toISOString().slice(0, 10);
 
   try {
-    const [rows] = await db.query(
-      `SELECT
-         p.id           AS pegawai_id,
-         p.nama,
-         p.nik,
-         SUM(a.status = 'Hadir')     AS hadir,
-         SUM(a.status = 'Terlambat') AS terlambat,
-         SUM(a.status = 'Sakit')     AS sakit,
-         SUM(a.status = 'Izin')      AS izin,
-         SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alfa')      AS alfa,
-         COUNT(*)                    AS total
-       FROM pegawai p
-       LEFT JOIN absensi a
-         ON a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
-       GROUP BY p.id, p.nama, p.nik
-       ORDER BY p.nama ASC`,
-      [start, end],
-    );
-    res.json(rows);
+    const hariIni = await getHariIni();
+    // ✅ Pakai queryRekap yang sama — UI dan download selalu identik
+    const data = await queryRekap(start, end, hariIni);
+    res.json(data);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-// ─── GET /api/laporan/rekap-bulanan/download ──────────────────────────────────
+// ─── GET /api/laporan/rekap-bulanan/download — download PDF / Excel ──────────
 router.get("/rekap-bulanan/download", async (req, res) => {
-  const { bulan, format = "pdf" } = req.query;
-  if (!bulan)
-    return res.status(400).json({ message: "Parameter bulan diperlukan" });
-
-  const [year, month] = bulan.split("-");
-  const start = `${year}-${month}-01`;
-  const end = new Date(year, month, 0).toISOString().slice(0, 10);
-
   try {
-    const [data] = await db.query(
-      `SELECT
-         p.nama, p.nik,
-         SUM(a.status = 'Hadir')     AS hadir,
-         SUM(a.status = 'Terlambat') AS terlambat,
-         SUM(a.status = 'Sakit')     AS sakit,
-         SUM(a.status = 'Izin')      AS izin,
-         SUM(a.status = 'Cuti')      AS cuti,
-         SUM(a.status = 'Alfa')      AS alfa,
-         COUNT(*)                    AS total
-       FROM pegawai p
-       LEFT JOIN absensi a
-         ON a.pegawai_id = p.id AND a.tanggal BETWEEN ? AND ?
-       GROUP BY p.id, p.nama, p.nik
-       ORDER BY p.nama ASC`,
-      [start, end],
-    );
+    const { bulan, format } = req.query;
+    if (!bulan)
+      return res.status(400).json({ message: "Parameter bulan wajib ada" });
 
-    const bulanLabel = new Date(start + "T00:00:00").toLocaleDateString(
-      "id-ID",
-      { month: "long", year: "numeric" },
-    );
+    const [y, m] = bulan.split("-").map(Number);
+    const start = `${y}-${String(m).padStart(2, "0")}-01`;
+    const end = new Date(y, m, 0).toISOString().split("T")[0];
 
-    // ════════════════════════════════════════════════════════════════════════
-    // FORMAT: EXCEL
-    // ════════════════════════════════════════════════════════════════════════
-    if (format === "excel") {
+    const hariIni = await getHariIni();
+    // ✅ queryRekap yang SAMA dengan endpoint UI — dijamin identik
+    const data = await queryRekap(start, end, hariIni);
+
+    const totalHadir = data.reduce((s, r) => s + Number(r.hadir), 0);
+    const totalTerlambat = data.reduce((s, r) => s + Number(r.terlambat), 0);
+    const totalSakit = data.reduce((s, r) => s + Number(r.sakit), 0);
+    const totalIzin = data.reduce((s, r) => s + Number(r.izin), 0);
+    const totalCuti = data.reduce((s, r) => s + Number(r.cuti), 0);
+    const totalAlfa = data.reduce((s, r) => s + Number(r.alfa), 0);
+    const totalLibur = data.reduce((s, r) => s + Number(r.libur), 0);
+    const totalHariKerja = data.reduce(
+      (s, r) => s + Number(r.total_hari_kerja),
+      0,
+    );
+    const totalHari = data.reduce((s, r) => s + Number(r.total_hari), 0);
+
+    const bulanLabel = fmtBulan(bulan);
+
+    // ════════════════════════════════════════════════════════
+    // FORMAT PDF
+    // ════════════════════════════════════════════════════════
+    if (format === "pdf") {
+      const doc = new PDFDocument({
+        margin: 40,
+        size: "A4",
+        layout: "landscape",
+      });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="rekap-absensi-${bulan}.pdf"`,
+      );
+      doc.pipe(res);
+
+      const ML = 40,
+        PW = 752;
+
+      doc.rect(ML, 40, PW, 65).fill([28, 43, 74]);
+      doc
+        .fillColor("#ffffff")
+        .font("Helvetica-Bold")
+        .fontSize(16)
+        .text("REKAP ABSENSI BULANAN", ML, 52, { width: PW, align: "center" });
+      doc
+        .font("Helvetica")
+        .fontSize(11)
+        .text(`Periode: ${bulanLabel}`, ML, 76, { width: PW, align: "center" });
+
+      const COLS = [
+        "No",
+        "Nama",
+        "NIK",
+        "Hadir",
+        "Terlambat",
+        "Sakit",
+        "Izin",
+        "Cuti",
+        "Alfa",
+        "Libur",
+        "Total Hari Kerja",
+        "Total Hari",
+      ];
+      const WIDTHS = [22, 110, 72, 44, 55, 40, 36, 36, 36, 36, 80, "auto"];
+      const fixedTotal = WIDTHS.slice(0, -1).reduce((s, w) => s + w, 0);
+      WIDTHS[WIDTHS.length - 1] = PW - fixedTotal;
+
+      const HEAD_COLORS = {
+        Hadir: [46, 125, 50],
+        Terlambat: [230, 81, 0],
+        Sakit: [1, 87, 155],
+        Izin: [66, 66, 66],
+        Cuti: [106, 27, 154],
+        Alfa: [183, 28, 28],
+        Libur: [100, 100, 100],
+        "Total Hari Kerja": [13, 71, 161],
+        "Total Hari": [13, 71, 161],
+      };
+
+      let ty = 120,
+        tx = ML;
+      doc.rect(ML, ty, PW, 18).fill([28, 43, 74]);
+      COLS.forEach((h, i) => {
+        doc
+          .fillColor("#ffffff")
+          .font("Helvetica-Bold")
+          .fontSize(7.5)
+          .text(h, tx + 2, ty + 5, {
+            width: WIDTHS[i] - 4,
+            align: i < 3 ? "left" : "center",
+          });
+        tx += WIDTHS[i];
+      });
+      ty += 18;
+
+      data.forEach((r, idx) => {
+        const rowBg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
+        doc.rect(ML, ty, PW, 16).fill(rowBg);
+        tx = ML;
+        const vals = [
+          String(idx + 1),
+          r.nama,
+          r.nik || "-",
+          String(Number(r.hadir)),
+          String(Number(r.terlambat)),
+          String(Number(r.sakit)),
+          String(Number(r.izin)),
+          String(Number(r.cuti)),
+          String(Number(r.alfa)),
+          String(Number(r.libur)),
+          String(Number(r.total_hari_kerja)),
+          String(Number(r.total_hari)),
+        ];
+        vals.forEach((v, i) => {
+          const txtColor = HEAD_COLORS[COLS[i]] || [40, 40, 40];
+          doc
+            .fillColor(txtColor)
+            .font(i >= 3 ? "Helvetica-Bold" : "Helvetica")
+            .fontSize(7.5)
+            .text(v, tx + 2, ty + 4, {
+              width: WIDTHS[i] - 4,
+              align: i < 3 ? "left" : "center",
+              lineBreak: false,
+            });
+          tx += WIDTHS[i];
+        });
+        doc
+          .strokeColor([220, 220, 220])
+          .lineWidth(0.3)
+          .moveTo(ML, ty + 16)
+          .lineTo(ML + PW, ty + 16)
+          .stroke();
+        ty += 16;
+      });
+
+      const now = new Date().toLocaleString("id-ID", {
+        timeZone: "Asia/Jakarta",
+      });
+      doc
+        .fillColor("#888")
+        .font("Helvetica")
+        .fontSize(8)
+        .text(`Dicetak: ${now} WIB`, ML, ty + 34, {
+          align: "right",
+          width: PW,
+        });
+
+      doc.end();
+
+      // ════════════════════════════════════════════════════════
+      // FORMAT EXCEL
+      // ════════════════════════════════════════════════════════
+    } else if (format === "excel") {
       const wb = new ExcelJS.Workbook();
-      wb.creator = "E-Absen";
       const ws = wb.addWorksheet(`Rekap ${bulanLabel}`);
 
-      ws.columns = [
-        { key: "no", width: 5 },
-        { key: "nama", width: 28 },
-        { key: "nik", width: 18 },
-        { key: "hadir", width: 10 },
-        { key: "terlambat", width: 12 },
-        { key: "sakit", width: 10 },
-        { key: "izin", width: 10 },
-        { key: "cuti", width: 10 },
-        { key: "alfa", width: 10 },
-        { key: "total", width: 12 },
-      ];
-
-      // Judul
-      ws.mergeCells("A1:J1");
+      ws.mergeCells("A1:L1");
       const titleCell = ws.getCell("A1");
-      titleCell.value = `REKAP ABSENSI — ${bulanLabel.toUpperCase()}`;
+      titleCell.value = `REKAP ABSENSI BULANAN — ${bulanLabel.toUpperCase()}`;
       titleCell.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
       titleCell.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "FF1A3C6E" },
+        fgColor: { argb: "FF1c2b4a" },
       };
       titleCell.alignment = { horizontal: "center", vertical: "middle" };
-      ws.getRow(1).height = 30;
+      ws.getRow(1).height = 28;
 
-      // Sub-judul
-      ws.mergeCells("A2:J2");
-      const subCell = ws.getCell("A2");
-      subCell.value = `Periode: ${formatTanggalIndo(start)} s/d ${formatTanggalIndo(end)}`;
-      subCell.font = { size: 10, italic: true };
-      subCell.alignment = { horizontal: "center" };
-      ws.getRow(2).height = 18;
-
-      ws.addRow([]);
-
-      // Header kolom
-      const HEADERS = [
+      const headers = [
         "No",
         "Nama Pegawai",
         "NIK",
@@ -198,148 +439,91 @@ router.get("/rekap-bulanan/download", async (req, res) => {
         "Izin",
         "Cuti",
         "Alfa",
-        "Total",
+        "Libur",
+        "Total Hari Kerja",
+        "Total Hari",
       ];
-      const hdrRow = ws.addRow(HEADERS);
-      hdrRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      ws.addRow(headers).eachCell((cell, ci) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         cell.fill = {
           type: "pattern",
           pattern: "solid",
-          fgColor: { argb: "FF1A3C6E" },
+          fgColor: { argb: "FF1a3c6e" },
         };
-        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.alignment = {
+          horizontal: ci <= 3 ? "left" : "center",
+          vertical: "middle",
+        };
         cell.border = {
-          top: { style: "thin" },
-          bottom: { style: "thin" },
-          left: { style: "thin" },
-          right: { style: "thin" },
+          bottom: { style: "thin", color: { argb: "FF90caf9" } },
         };
       });
-      ws.getRow(4).height = 22;
 
-      // Data rows
-      const STATUS_COLORS = {
-        hadir: { argb: toArgb("#e8f5e9"), txt: toArgb("#2e7d32") },
-        terlambat: { argb: toArgb("#fff3e0"), txt: toArgb("#e65100") },
-        sakit: { argb: toArgb("#e1f5fe"), txt: toArgb("#0277bd") },
-        izin: { argb: "FFF5F5F5", txt: "FF555555" },
-        cuti: { argb: toArgb("#f3e5f5"), txt: toArgb("#6a1b9a") },
-        alfa: { argb: toArgb("#ffebee"), txt: toArgb("#c62828") },
+      const statusCols = {
+        4: "hadir",
+        5: "terlambat",
+        6: "sakit",
+        7: "izin",
+        8: "cuti",
+        9: "alfa",
+        10: "libur",
+        11: "total_kerja",
+        12: "total",
       };
 
-      data.forEach((r, i) => {
+      data.forEach((r, idx) => {
         const row = ws.addRow([
-          i + 1,
+          idx + 1,
           r.nama,
-          r.nik,
+          r.nik || "-",
           Number(r.hadir),
           Number(r.terlambat),
           Number(r.sakit),
           Number(r.izin),
           Number(r.cuti),
           Number(r.alfa),
-          Number(r.total),
+          Number(r.libur),
+          Number(r.total_hari_kerja),
+          Number(r.total_hari),
         ]);
-        row.height = 18;
-        const bgArgb = i % 2 === 0 ? "FFFFFFFF" : "FFF9F9F9";
-
-        row.eachCell((cell, colNum) => {
-          cell.border = {
-            top: { style: "thin", color: { argb: "FFE0E0E0" } },
-            bottom: { style: "thin", color: { argb: "FFE0E0E0" } },
-            left: { style: "thin", color: { argb: "FFE0E0E0" } },
-            right: { style: "thin", color: { argb: "FFE0E0E0" } },
-          };
-          if (colNum <= 3) {
+        row.eachCell((cell, ci) => {
+          const key = statusCols[ci];
+          if (key) {
             cell.fill = {
               type: "pattern",
               pattern: "solid",
-              fgColor: { argb: bgArgb },
+              fgColor: {
+                argb: STATUS_COLORS[key]?.argb || STATUS_COLORS.total.argb,
+              },
             };
-            cell.alignment = {
-              vertical: "middle",
-              horizontal: colNum === 1 ? "center" : "left",
+            cell.font = {
+              bold: true,
+              color: {
+                argb: STATUS_COLORS[key]?.txt || STATUS_COLORS.total.txt,
+              },
             };
-          } else if (colNum === 10) {
-            cell.font = { bold: true };
-            cell.fill = {
-              type: "pattern",
-              pattern: "solid",
-              fgColor: { argb: "FFEEEEEE" },
-            };
-            cell.alignment = { horizontal: "center", vertical: "middle" };
-          } else {
-            const keys = [
-              "hadir",
-              "terlambat",
-              "sakit",
-              "izin",
-              "cuti",
-              "alfa",
-            ];
-            const sc = STATUS_COLORS[keys[colNum - 4]];
-            cell.fill = {
-              type: "pattern",
-              pattern: "solid",
-              fgColor: { argb: sc.argb },
-            };
-            cell.font = { bold: true, color: { argb: sc.txt } };
-            cell.alignment = { horizontal: "center", vertical: "middle" };
           }
+          cell.alignment = { horizontal: ci <= 3 ? "left" : "center" };
+          cell.border = {
+            bottom: { style: "hair", color: { argb: "FFe0e0e0" } },
+          };
         });
       });
 
-      // Baris total bawah
-      const totalRow = ws.addRow([
-        "",
-        "TOTAL",
-        "",
-        data.reduce((s, r) => s + Number(r.hadir), 0),
-        data.reduce((s, r) => s + Number(r.terlambat), 0),
-        data.reduce((s, r) => s + Number(r.sakit), 0),
-        data.reduce((s, r) => s + Number(r.izin), 0),
-        data.reduce((s, r) => s + Number(r.cuti), 0),
-        data.reduce((s, r) => s + Number(r.alfa), 0),
-        data.reduce((s, r) => s + Number(r.total), 0),
-      ]);
-      totalRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FFEEEEEE" },
-        };
-        cell.border = {
-          top: { style: "medium", color: { argb: "FF1A3C6E" } },
-          bottom: { style: "medium", color: { argb: "FF1A3C6E" } },
-          left: { style: "thin", color: { argb: "FFE0E0E0" } },
-          right: { style: "thin", color: { argb: "FFE0E0E0" } },
-        };
-        cell.alignment = { horizontal: "center", vertical: "middle" };
-      });
-
-      // Footer
-      ws.addRow([]);
-      const footerRow = ws.addRow([
-        "",
-        `Dicetak: ${new Date().toLocaleDateString("id-ID", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Jakarta",
-        })} WIB`,
-      ]);
-      footerRow.getCell(2).font = {
-        italic: true,
-        color: { argb: "FF999999" },
-        size: 9,
-      };
-      footerRow.getCell(2).alignment = { horizontal: "right" };
-      ws.mergeCells(`B${footerRow.number}:J${footerRow.number}`);
+      ws.columns = [
+        { width: 5 },
+        { width: 25 },
+        { width: 18 },
+        { width: 10 },
+        { width: 12 },
+        { width: 10 },
+        { width: 10 },
+        { width: 10 },
+        { width: 10 },
+        { width: 10 },
+        { width: 18 },
+        { width: 13 },
+      ];
 
       res.setHeader(
         "Content-Type",
@@ -347,318 +531,130 @@ router.get("/rekap-bulanan/download", async (req, res) => {
       );
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=rekap-absensi-${bulan}.xlsx`,
+        `attachment; filename="rekap-absensi-${bulan}.xlsx"`,
       );
       await wb.xlsx.write(res);
       res.end();
-      return;
+    } else {
+      res.status(400).json({
+        message: "Format tidak valid. Gunakan ?format=pdf atau ?format=excel",
+      });
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // FORMAT: PDF (rekap bulanan)
-    // ════════════════════════════════════════════════════════════════════════
-    const doc = new PDFDocument({
-      margin: 40,
-      size: "A4",
-      layout: "landscape",
-    });
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=rekap-absensi-${bulan}.pdf`,
-    );
-    res.setHeader("Content-Type", "application/pdf");
-    doc.pipe(res);
-
-    const PW = doc.page.width;
-    const ML = 40;
-    const CW = PW - ML * 2;
-
-    // Header
-    doc.rect(ML, 30, CW, 72).fill("#1a3c6e");
-    doc
-      .fillColor("#ffffff")
-      .fontSize(20)
-      .font("Helvetica-Bold")
-      .text("REKAP ABSENSI BULANAN", ML, 44, { align: "center", width: CW });
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(`Periode: ${bulanLabel}`, ML, 72, { align: "center", width: CW });
-
-    // Tabel
-    const tableTop = 120;
-    const ROW_H = 22;
-    const colW = {
-      no: 28,
-      nama: 180,
-      nik: 90,
-      hadir: 55,
-      terlambat: 65,
-      sakit: 55,
-      izin: 55,
-      cuti: 55,
-      alfa: 55,
-    };
-    colW.total = CW - Object.values(colW).reduce((a, b) => a + b, 0);
-
-    const col = {};
-    let xc = ML;
-    for (const [k, w] of Object.entries(colW)) {
-      col[k] = { x: xc, w };
-      xc += w;
-    }
-
-    const headers = [
-      { k: "no", l: "No", align: "center" },
-      { k: "nama", l: "Nama", align: "left" },
-      { k: "nik", l: "NIK", align: "left" },
-      { k: "hadir", l: "Hadir", align: "center" },
-      { k: "terlambat", l: "Terlambat", align: "center" },
-      { k: "sakit", l: "Sakit", align: "center" },
-      { k: "izin", l: "Izin", align: "center" },
-      { k: "cuti", l: "Cuti", align: "center" },
-      { k: "alfa", l: "Alfa", align: "center" },
-      { k: "total", l: "Total", align: "center" },
-    ];
-
-    const drawHdr = (y) => {
-      doc.rect(ML, y, CW, ROW_H).fill("#1a3c6e");
-      doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-      headers.forEach(({ k, l, align }) => {
-        doc.text(l, col[k].x + 3, y + 7, { width: col[k].w - 6, align });
-      });
-    };
-
-    drawHdr(tableTop);
-    let rowY = tableTop + ROW_H;
-
-    // ── Data rows ─────────────────────────────────────────────────────────
-    data.forEach((r, i) => {
-      if (rowY + ROW_H > doc.page.height - 50) {
-        doc.addPage({ size: "A4", layout: "landscape", margin: 40 });
-        rowY = 40;
-        drawHdr(rowY);
-        rowY += ROW_H;
-      }
-      const bg = i % 2 === 0 ? "#ffffff" : "#f9f9f9";
-      doc.rect(ML, rowY, CW, ROW_H).fill(bg).stroke("#e8e8e8");
-      const cy = rowY + 7;
-
-      doc.fillColor("#333").font("Helvetica").fontSize(8.5);
-      doc.text(String(i + 1), col.no.x + 3, cy, {
-        width: col.no.w - 6,
-        align: "center",
-      });
-      doc.text(r.nama, col.nama.x + 3, cy, { width: col.nama.w - 6 });
-      doc.text(r.nik || "-", col.nik.x + 3, cy, { width: col.nik.w - 6 });
-
-      const num = (k) => String(Number(r[k]));
-      [
-        ["hadir", "#2e7d32"],
-        ["terlambat", "#e65100"],
-        ["sakit", "#0277bd"],
-        ["izin", "#555555"],
-        ["cuti", "#6a1b9a"],
-        ["alfa", "#c62828"],
-      ].forEach(([k, clr]) => {
-        doc
-          .fillColor(clr)
-          .font("Helvetica-Bold")
-          .text(num(k), col[k].x + 3, cy, {
-            width: col[k].w - 6,
-            align: "center",
-          });
-      });
-      doc
-        .fillColor("#333")
-        .font("Helvetica-Bold")
-        .text(num("total"), col.total.x + 3, cy, {
-          width: col.total.w - 6,
-          align: "center",
-        });
-
-      rowY += ROW_H;
-    });
-
-    // ── Baris TOTAL ───────────────────────────────────────────────────────
-    const totalHadir = data.reduce((s, r) => s + Number(r.hadir), 0);
-    const totalTerlambat = data.reduce((s, r) => s + Number(r.terlambat), 0);
-    const totalSakit = data.reduce((s, r) => s + Number(r.sakit), 0);
-    const totalIzin = data.reduce((s, r) => s + Number(r.izin), 0);
-    const totalCuti = data.reduce((s, r) => s + Number(r.cuti), 0);
-    const totalAlfa = data.reduce((s, r) => s + Number(r.alfa), 0);
-    const totalSemua = data.reduce((s, r) => s + Number(r.total), 0);
-
-    // Cek page break sebelum baris total
-    if (rowY + ROW_H > doc.page.height - 50) {
-      doc.addPage({ size: "A4", layout: "landscape", margin: 40 });
-      rowY = 40;
-      drawHdr(rowY);
-      rowY += ROW_H;
-    }
-
-    // Background baris total
-    doc.rect(ML, rowY, CW, ROW_H).fill("#eeeeee").stroke("#1a3c6e");
-    const cy = rowY + 7;
-
-    // Label "TOTAL"
-    doc.fillColor("#1a3c6e").font("Helvetica-Bold").fontSize(8.5);
-    doc.text("TOTAL", col.no.x + 3, cy, {
-      width: col.no.w + col.nama.w + col.nik.w - 6,
-      align: "center",
-    });
-
-    // Nilai total per status
-    [
-      ["hadir", String(totalHadir), "#2e7d32"],
-      ["terlambat", String(totalTerlambat), "#e65100"],
-      ["sakit", String(totalSakit), "#0277bd"],
-      ["izin", String(totalIzin), "#555555"],
-      ["cuti", String(totalCuti), "#6a1b9a"],
-      ["alfa", String(totalAlfa), "#c62828"],
-    ].forEach(([k, val, clr]) => {
-      doc
-        .fillColor(clr)
-        .font("Helvetica-Bold")
-        .fontSize(8.5)
-        .text(val, col[k].x + 3, cy, { width: col[k].w - 6, align: "center" });
-    });
-
-    // Total keseluruhan
-    doc
-      .fillColor("#333333")
-      .font("Helvetica-Bold")
-      .fontSize(8.5)
-      .text(String(totalSemua), col.total.x + 3, cy, {
-        width: col.total.w - 6,
-        align: "center",
-      });
-
-    rowY += ROW_H;
-
-    // ── Footer ────────────────────────────────────────────────────────────
-    doc
-      .moveTo(ML, rowY)
-      .lineTo(ML + CW, rowY)
-      .strokeColor("#1a3c6e")
-      .lineWidth(1)
-      .stroke();
-    doc
-      .fillColor("#999999")
-      .font("Helvetica")
-      .fontSize(8)
-      .text(
-        `Dicetak: ${new Date().toLocaleDateString("id-ID", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Jakarta",
-        })} WIB`,
-        ML,
-        rowY + 14,
-        { align: "right", width: CW },
-      );
-
-    doc.end();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Gagal generate laporan" });
+    res.status(500).json({ message: err.message });
   }
 });
 
-// ─── GET /api/laporan/download (per-pegawai, PDF) ─────────────────────────────
+// ─── GET /api/laporan/download — PDF detail satu pegawai ─────────────────────
 router.get("/download", async (req, res) => {
   const { pegawai_id, start, end } = req.query;
   if (!pegawai_id || !start || !end)
     return res.status(400).json({ message: "Parameter tidak lengkap" });
 
   try {
-    const [[pegawai]] = await db.query(
-      "SELECT nama, nik FROM pegawai WHERE id = ?",
+    const hariIni = await getHariIni();
+
+    const [pegawaiRows] = await db.query(
+      `SELECT p.* FROM pegawai p WHERE p.id = ?`,
       [pegawai_id],
     );
-    const [data] = await db.query(
-      `SELECT DATE_FORMAT(a.tanggal,'%Y-%m-%d') as tanggal,
-              a.jam_masuk, a.jam_pulang, a.status, a.shift_kode,
-              a.status_area, a.status_area_pulang,
-              a.keterangan, a.keterangan_pulang
-       FROM absensi a
-       WHERE a.pegawai_id = ? AND a.tanggal BETWEEN ? AND ?
-       ORDER BY a.tanggal ASC`,
-      [pegawai_id, start, end],
+    if (pegawaiRows.length === 0)
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
+    const pegawai = pegawaiRows[0];
+
+    const [rows] = await db.query(
+      `SELECT
+         DATE_FORMAT(j.tanggal, '%Y-%m-%d') AS tanggal,
+         j.shift_kode, a.jam_masuk, a.jam_pulang,
+         a.status_area, a.status_area_pulang, a.keterangan, a.keterangan_pulang,
+         CASE
+           WHEN a.status IS NOT NULL THEN a.status
+           WHEN j.shift_kode = 'L'   THEN 'Libur'
+           WHEN j.shift_kode = 'CT'  THEN 'Cuti'
+           ELSE 'Alfa'
+         END AS status
+       FROM jadwal_pegawai j
+       LEFT JOIN absensi a
+         ON a.pegawai_id = j.pegawai_id AND a.tanggal = DATE(j.tanggal)
+       WHERE j.pegawai_id = ?
+         AND DATE(j.tanggal) BETWEEN ? AND ?
+         AND DATE(j.tanggal) <= ?
+       ORDER BY j.tanggal ASC`,
+      [pegawai_id, start, end, hariIni],
     );
+
+    let data = rows;
+    if (data.length === 0) {
+      const [fallback] = await db.query(
+        `SELECT DATE_FORMAT(tanggal,'%Y-%m-%d') as tanggal,
+                jam_masuk, jam_pulang, status, shift_kode,
+                status_area, status_area_pulang, keterangan, keterangan_pulang
+         FROM absensi
+         WHERE pegawai_id = ? AND tanggal BETWEEN ? AND ? AND tanggal <= ?
+         ORDER BY tanggal ASC`,
+        [pegawai_id, start, end, hariIni],
+      );
+      data = fallback;
+    }
+
+    const hadir = data.filter((r) => r.status === "Hadir").length;
+    const terlambat = data.filter((r) => r.status === "Terlambat").length;
+    const sakit = data.filter((r) => r.status === "Sakit").length;
+    const izin = data.filter((r) => r.status === "Izin").length;
+    const cuti = data.filter((r) => r.status === "Cuti").length;
+    const alfa = data.filter((r) => r.status === "Alfa").length;
+    const libur = data.filter((r) => r.status === "Libur").length;
+    const total_kerja = hadir + terlambat + sakit + izin + cuti + alfa;
+    const total = total_kerja + libur;
 
     const doc = new PDFDocument({
       margin: 40,
       size: "A4",
       layout: "landscape",
     });
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=laporan-absensi-${pegawai?.nama || "pegawai"}.pdf`,
+      `attachment; filename="laporan-${pegawai.nama}-${start}-${end}.pdf"`,
     );
-    res.setHeader("Content-Type", "application/pdf");
     doc.pipe(res);
 
-    const PW = doc.page.width;
-    const ML = 40;
-    const CW = PW - ML * 2;
+    const ML = 40,
+      PW = 752,
+      CW = PW;
 
-    // Header
-    doc.rect(ML, 30, CW, 72).fill("#1a3c6e");
+    doc.rect(ML, 40, CW, 70).fill([28, 43, 74]);
     doc
       .fillColor("#ffffff")
-      .fontSize(22)
       .font("Helvetica-Bold")
-      .text("LAPORAN ABSENSI", ML, 46, { align: "center", width: CW });
+      .fontSize(15)
+      .text("LAPORAN ABSENSI PEGAWAI", ML, 52, { width: CW, align: "center" });
     doc
-      .fontSize(10)
       .font("Helvetica")
-      .text("E-Absen — Sistem Manajemen Kehadiran", ML, 74, {
-        align: "center",
-        width: CW,
-      });
+      .fontSize(10)
+      .text(
+        `Periode: ${formatTanggalIndo(start)} s/d ${formatTanggalIndo(end)}`,
+        ML,
+        74,
+        { width: CW, align: "center" },
+      );
 
-    // Info pegawai
-    const infoY = 115;
-    doc.rect(ML, infoY, CW, 78).fill("#f5f7fa").stroke("#e0e0e0");
+    const infoY = 125;
+    doc.rect(ML, infoY, CW, 58).fill("#f8fafc").stroke("#e0e0e0");
     doc
       .fillColor("#1a3c6e")
       .font("Helvetica-Bold")
       .fontSize(10)
-      .text("INFORMASI PEGAWAI", ML + 15, infoY + 12);
-    doc
-      .moveTo(ML + 15, infoY + 26)
-      .lineTo(ML + CW - 15, infoY + 26)
-      .strokeColor("#1a3c6e")
-      .lineWidth(0.8)
-      .stroke();
-    doc.font("Helvetica").fillColor("#555555").fontSize(9.5);
-    doc.text("Nama", ML + 15, infoY + 34);
-    doc.text("NIK", ML + 15, infoY + 49);
-    doc.text("Periode", ML + 15, infoY + 64);
-    doc.fillColor("#000000").font("Helvetica-Bold");
-    doc.text(`: ${pegawai?.nama || "-"}`, ML + 90, infoY + 34);
-    doc.text(`: ${pegawai?.nik || "-"}`, ML + 90, infoY + 49);
-    doc.text(
-      `: ${formatTanggalIndo(start)} s/d ${formatTanggalIndo(end)}`,
-      ML + 90,
-      infoY + 64,
-    );
+      .text("INFORMASI PEGAWAI", ML + 15, infoY + 8);
+    doc.fillColor("#333").font("Helvetica").fontSize(9);
+    const col1X = ML + 15,
+      col2X = ML + CW / 2;
+    doc.text(`Nama  : ${pegawai.nama || "-"}`, col1X, infoY + 22);
+    doc.text(`NIK   : ${pegawai.nik || "-"}`, col1X, infoY + 34);
+    doc.text(`No HP : ${pegawai.no_hp || "-"}`, col2X, infoY + 22);
+    doc.text(`Alamat: ${pegawai.alamat || "-"}`, col2X, infoY + 34);
 
-    // Rekap summary
-    const hadir = data.filter((d) => d.status === "Hadir").length;
-    const terlambat = data.filter((d) => d.status === "Terlambat").length;
-    const sakit = data.filter((d) => d.status === "Sakit").length;
-    const izin = data.filter((d) => d.status === "Izin").length;
-    const cuti = data.filter((d) => d.status === "Cuti").length;
-    const alfa = data.filter((d) => d.status === "Alfa").length;
-    const total = data.length;
-
-    const rekY = infoY + 88;
+    const rekY = infoY + 72;
     doc
       .fillColor("#1a3c6e")
       .font("Helvetica-Bold")
@@ -678,15 +674,17 @@ router.get("/download", async (req, res) => {
       { label: "Sakit", value: sakit, color: "#6a1b9a" },
       { label: "Cuti", value: cuti, color: "#00695c" },
       { label: "Alfa", value: alfa, color: "#c62828" },
-      { label: "Total", value: total, color: "#333333" },
+      { label: "Libur", value: libur, color: "#37474f" },
+      { label: "Total Kerja", value: total_kerja, color: "#333333" },
+      { label: "Total Hari", value: total, color: "#333333" },
     ];
 
-    const boxW = 88,
-      boxH = 44;
-    const gapX = (CW - boxW * summaryItems.length) / (summaryItems.length + 1);
+    const boxW = Math.floor((CW - 30) / summaryItems.length) - 4;
+    const boxH = 44;
+    const startX = ML + 15;
     summaryItems.forEach((item, i) => {
-      const x = ML + gapX + i * (boxW + gapX);
-      const y = rekY + 20;
+      const x = startX + i * (boxW + 4),
+        y = rekY + 20;
       doc.rect(x, y, boxW, boxH).fill("#ffffff").stroke("#e0e0e0");
       doc
         .fillColor(item.color)
@@ -696,14 +694,12 @@ router.get("/download", async (req, res) => {
       doc
         .fillColor("#555555")
         .font("Helvetica")
-        .fontSize(8)
+        .fontSize(7.5)
         .text(item.label, x, y + 28, { width: boxW, align: "center" });
     });
 
-    // Tabel detail
-    const tableTop = rekY + 82;
-    const ROW_H = 22;
-
+    const tableTop = rekY + 82,
+      ROW_H = 22;
     const colWidths = {
       no: Math.round(CW * 0.037),
       tanggal: Math.round(CW * 0.135),
@@ -764,15 +760,17 @@ router.get("/download", async (req, res) => {
     } else {
       data.forEach((item, i) => {
         const nonHadir = NON_HADIR.includes(item.status);
-        const ketText = nonHadir
-          ? item.keterangan || "-"
-          : [item.keterangan, item.keterangan_pulang]
-              .filter(Boolean)
-              .join(" · ") || "-";
+        const isLibur = item.status === "Libur";
+        const ketText =
+          nonHadir || isLibur
+            ? item.keterangan || "-"
+            : [item.keterangan, item.keterangan_pulang]
+                .filter(Boolean)
+                .join(" · ") || "-";
 
         const ketW = col.ket.w - 8;
         const charsPerLine = Math.floor(ketW / 5.2);
-        const lines = Math.ceil(ketText.length / charsPerLine);
+        const lines = Math.ceil(ketText.length / Math.max(charsPerLine, 1));
         const rH = Math.max(ROW_H, lines * 11 + 8);
 
         if (rowY + rH > doc.page.height - 50) {
@@ -796,18 +794,24 @@ router.get("/download", async (req, res) => {
         doc.text(formatTanggalPendek(item.tanggal), col.tanggal.x + 3, cy, {
           width: col.tanggal.w - 6,
         });
-        doc.text(nonHadir ? "-" : item.shift_kode || "-", col.shift.x + 3, cy, {
-          width: col.shift.w - 6,
-          align: "center",
-        });
         doc.text(
-          nonHadir ? "-" : item.jam_masuk ? item.jam_masuk.slice(0, 5) : "-",
+          nonHadir || isLibur ? "-" : item.shift_kode || "-",
+          col.shift.x + 3,
+          cy,
+          { width: col.shift.w - 6, align: "center" },
+        );
+        doc.text(
+          nonHadir || isLibur
+            ? "-"
+            : item.jam_masuk
+              ? item.jam_masuk.slice(0, 5)
+              : "-",
           col.masuk.x + 3,
           cy,
           { width: col.masuk.w - 6, align: "center" },
         );
 
-        const areaMasuk = nonHadir ? "-" : item.status_area || "-";
+        const areaMasuk = nonHadir || isLibur ? "-" : item.status_area || "-";
         doc
           .fillColor(getAreaColor(areaMasuk))
           .text(areaMasuk, col.areaMasuk.x + 3, cy, {
@@ -818,7 +822,7 @@ router.get("/download", async (req, res) => {
         doc
           .fillColor("#333333")
           .text(
-            nonHadir
+            nonHadir || isLibur
               ? "-"
               : item.jam_pulang
                 ? item.jam_pulang.slice(0, 5)
@@ -828,7 +832,8 @@ router.get("/download", async (req, res) => {
             { width: col.pulang.w - 6, align: "center" },
           );
 
-        const areaPulang = nonHadir ? "-" : item.status_area_pulang || "-";
+        const areaPulang =
+          nonHadir || isLibur ? "-" : item.status_area_pulang || "-";
         doc
           .fillColor(getAreaColor(areaPulang))
           .text(areaPulang, col.areaPulang.x + 3, cy, {
@@ -857,7 +862,6 @@ router.get("/download", async (req, res) => {
       });
     }
 
-    // ── Garis + footer ────────────────────────────────────────────────────
     doc
       .moveTo(ML, rowY)
       .lineTo(ML + CW, rowY)
@@ -879,14 +883,15 @@ router.get("/download", async (req, res) => {
           timeZone: "Asia/Jakarta",
         })} WIB`,
         ML,
-        rowY + 18,
+        rowY + 10,
         { align: "right", width: CW },
       );
 
     doc.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Gagal generate PDF" });
+    if (!res.headersSent)
+      res.status(500).json({ message: "Gagal generate PDF" });
   }
 });
 

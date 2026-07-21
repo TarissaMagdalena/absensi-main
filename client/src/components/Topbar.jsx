@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// TOPBAR — Bilah atas dengan jam & tanggal real-time dari server
+// ═══════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
 import {
@@ -12,12 +15,22 @@ import MenuIcon from "@mui/icons-material/Menu";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
+// ═══════════════════════════════════════════════════════════════
+// Lebar sidebar
+// ═══════════════════════════════════════════════════════════════
 const DRAWER_WIDTH = 240;
 
-// 🔥 State waktu di luar komponen — tidak reset saat pindah halaman
+// ═══════════════════════════════════════════════════════════════
+// Shared Clock State — tidak reset saat pindah halaman
+// sharedTime = waktu terkini yg sudah disinkronisasi dari server
+// tickStarted = flag agar clock hanya dimulai sekali selama app hidup
+// ═══════════════════════════════════════════════════════════════
 let sharedTime = new Date();
 let tickStarted = false;
 
+// ═══════════════════════════════════════════════════════════════
+// Format tampilan tanggal
+// ═══════════════════════════════════════════════════════════════
 function formatTanggal(date) {
   return date.toLocaleDateString("id-ID", {
     weekday: "long",
@@ -28,6 +41,9 @@ function formatTanggal(date) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Format tampilan jam
+// ═══════════════════════════════════════════════════════════════
 function formatWaktu(date) {
   return date.toLocaleTimeString("id-ID", {
     hour: "2-digit",
@@ -38,19 +54,25 @@ function formatWaktu(date) {
   });
 }
 
-// 🔥 Listeners untuk update semua instance Topbar
+// ═══════════════════════════════════════════════════════════════
+// Listeners — daftar fungsi setState dari semua instance Topbar
+// ═══════════════════════════════════════════════════════════════
 const listeners = new Set();
 
 function notifyListeners() {
   listeners.forEach((fn) => fn(new Date(sharedTime)));
 }
 
-// 🔥 Mulai tick dan sync — hanya sekali selama aplikasi hidup
+// ═══════════════════════════════════════════════════════════════
+// startSharedClock  Mulai tick dan sync — hanya sekali selama aplikasi hidup
+// ═══════════════════════════════════════════════════════════════
 function startSharedClock(apiFetchFn) {
   if (tickStarted) return;
   tickStarted = true;
 
-  // Sync pertama
+  // ═══════════════════════════════════════════════════════════════
+  // Fungsi sinkronisasi waktu dari server - Sync pertama saat aplikasi pertama dibuka
+  // ═══════════════════════════════════════════════════════════════
   const sync = async () => {
     try {
       const res = await apiFetchFn("http://localhost:5000/api/time");
@@ -65,7 +87,9 @@ function startSharedClock(apiFetchFn) {
 
   sync();
 
+  // ═══════════════════════════════════════════════════════════════
   // Tick lokal setiap 1 detik
+  // ═══════════════════════════════════════════════════════════════
   setInterval(() => {
     sharedTime = new Date(sharedTime.getTime() + 1000);
     notifyListeners();
@@ -75,18 +99,21 @@ function startSharedClock(apiFetchFn) {
   setInterval(sync, 30000);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// KOMPONEN TOPBAR
+// ═══════════════════════════════════════════════════════════════
 export default function Topbar({ onMenuClick }) {
-  const [time, setTime] = useState(sharedTime); // 🔥 pakai sharedTime, bukan new Date()
+  const [time, setTime] = useState(sharedTime);
 
   useEffect(() => {
     // Daftarkan listener
     listeners.add(setTime);
 
-    // Mulai clock kalau belum jalan
+    // Mulai clock
     startSharedClock(apiFetch);
 
+    // Cleanup: hapus listener saat komponen unmount (pindah halaman)
     return () => {
-      // Unregister saat unmount
       listeners.delete(setTime);
     };
   }, []);
@@ -111,7 +138,6 @@ export default function Topbar({ onMenuClick }) {
         >
           <MenuIcon />
         </IconButton>
-
         <Box sx={{ flexGrow: 1 }} />
 
         <Box

@@ -1,3 +1,5 @@
+// ═══════════════════════════════════════════════════════════════
+// PENGATURAN PEGAWAI — Halaman ubah password untuk pegawai
 import { useState, useMemo } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutPegawai from "../../layout/DashboardLayoutPegawai";

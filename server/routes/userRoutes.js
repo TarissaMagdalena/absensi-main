@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════
+// USER ROUTES — Routing akun login pengguna
+// ═══════════════════════════════════════════════════════════════
+
 import express from "express";
 import {
   getUsers,
@@ -8,6 +12,7 @@ import {
 
 const router = express.Router();
 
+// ── Mapping route → controller function ──────────────────────────────────────
 router.get("/", getUsers);
 router.post("/", createUser);
 router.put("/:id", updateUser);

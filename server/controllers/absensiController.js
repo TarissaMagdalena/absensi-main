@@ -1,11 +1,16 @@
+// ═══════════════════════════════════════════════════════════════
+// ABSENSI CONTROLLER — Logic absen masuk, pulang, dan cek hari ini
+// ═══════════════════════════════════════════════════════════════
 import { db } from "../db.js";
 import { getWIBTime, formatWIB } from "../utils/getTime.js";
 
-// ── Konstanta ─────────────────────────────────────────────────────────────────
+// ── Koordinat kantor ─────────────────────────────────────────────────────────────────
 const OFFICE_LAT = 1.1168748359584304;
 const OFFICE_LNG = 104.09293169994906;
 // const OFFICE_LAT = 1.1198625933680553;
 // const OFFICE_LNG = 104.11315981359179;
+// const OFFICE_LAT = 1.118160414526369;
+// const OFFICE_LNG = 104.04857401962516;
 const MAX_RADIUS = 100; // meter — radius area absen yang diizinkan
 const BATAS_AWAL_MENIT = 120; // menit — berapa lama sebelum shift absen boleh dibuka
 
@@ -14,7 +19,9 @@ function isWaktuTidakTersedia(err) {
   return err?.message?.startsWith("WAKTU_TIDAK_TERSEDIA");
 }
 
-// ── Helper: hitung jarak dua koordinat (Haversine formula) ───────────────────
+// ── Formula Haversine — hitung jarak dua koordinat GPS (meter) ───────────────
+// Digunakan untuk menghitung jarak pegawai dari kantor
+// Return: jarak dalam meter
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -32,7 +39,9 @@ function toMenit(timeStr) {
   return h * 60 + m;
 }
 
-// ── Helper: keterangan & status absen masuk ───────────────────────────────────
+// ── Keterangan status berdasarkan waktu masuk vs jadwal shift ────────────────
+// Return: { status: "Hadir"|"Terlambat", keterangan: string }
+// Menangani shift normal DAN shift malam (melewati tengah malam)
 function hitungKeteranganMasuk(jamAbsen, jamMasukShift) {
   if (!jamMasukShift) return { status: "Hadir", keterangan: "Hadir" };
 
@@ -132,6 +141,8 @@ export const absenMasuk = async (req, res) => {
     const { pegawai_id, lat, lng, accuracy } = req.body;
 
     // ── Validasi akurasi GPS ──────────────────────────────────────────────────
+    // Akurasi > 150m = sinyal GPS terlalu buruk → tolak
+    // Akurasi < 5m  = terlalu sempurna → tandai mencurigakan (fake GPS?)
     if (accuracy && accuracy > 150) {
       return res.status(400).json({
         message: `Akurasi GPS terlalu rendah (±${Math.round(accuracy)}m). Pindah ke tempat dengan sinyal GPS lebih baik dan coba lagi.`,
@@ -145,9 +156,7 @@ export const absenMasuk = async (req, res) => {
       return res.status(400).json({ message: "pegawai_id tidak ditemukan" });
     }
 
-    // ✅ Ambil waktu dari API eksternal — tidak bisa dimanipulasi user/server
-    // Jika semua sumber eksternal gagal, getWIBTime() melempar error
-    // (tidak pernah fallback ke new Date() / jam perangkat)
+    //  Ambil waktu dari API eksternal — tidak bisa dimanipulasi user/server
     const realTime = await getWIBTime();
     const { today, now } = formatWIB(realTime);
 
@@ -180,7 +189,7 @@ export const absenMasuk = async (req, res) => {
 
     const jadwal = jadwalRows[0];
     const shift_kode = jadwal.shift_kode;
-
+    // ── Validasi shift: L (Libur) dan CT (Cuti) tidak absen ──────
     if (shift_kode === "L") {
       return res.status(400).json({ message: "Hari ini kamu terjadwal libur" });
     }
@@ -278,7 +287,7 @@ export const absenMasuk = async (req, res) => {
       is_pengajuan: false,
     });
   } catch (err) {
-    // ✅ Tangkap error waktu tidak tersedia secara eksplisit
+    // Tangkap error waktu tidak tersedia secara eksplisit
     // Ini terjadi ketika semua sumber waktu eksternal tidak bisa dijangkau
     if (isWaktuTidakTersedia(err)) {
       return res.status(503).json({
@@ -306,7 +315,7 @@ export const absenPulang = async (req, res) => {
       return res.status(400).json({ message: "Lokasi belum siap" });
     }
 
-    // ✅ Waktu dari sumber eksternal — tidak bisa dimanipulasi
+    //  Waktu dari sumber eksternal — tidak bisa dimanipulasi
     const realTime = await getWIBTime();
     const { today, now } = formatWIB(realTime);
 
@@ -380,7 +389,7 @@ export const absenPulang = async (req, res) => {
       status_area: status_area_pulang,
     });
   } catch (err) {
-    // ✅ Tangkap error waktu tidak tersedia
+    // Tangkap error waktu tidak tersedia
     if (isWaktuTidakTersedia(err)) {
       return res.status(503).json({
         message:
@@ -398,7 +407,7 @@ export const absenPulang = async (req, res) => {
 // ═════════════════════════════════════════════════════════════════════════════
 export const getTodayAbsensi = async (req, res) => {
   try {
-    // ✅ Waktu dari sumber eksternal
+    // Waktu dari sumber eksternal
     const realTime = await getWIBTime();
     const { today } = formatWIB(realTime);
 

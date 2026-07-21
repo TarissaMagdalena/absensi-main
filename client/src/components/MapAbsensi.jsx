@@ -1,16 +1,25 @@
+// ═══════════════════════════════════════════════════════════════
+// MAP ABSENSI — Peta interaktif Leaflet untuk validasi lokasi GPS
+// ═══════════════════════════════════════════════════════════════
 import { useEffect, useRef } from "react";
 import { Box, Typography } from "@mui/material";
 import L from "leaflet";
 
-// ── Koordinat & konfigurasi kantor ───────────────────────────────────────────
+// ── Koordinat & konfigurasi kantor ─────────────────────────────
 const OFFICE = {
   lat: 1.1168748359584304,
   lng: 104.09293169994906,
   // lat: 1.1198625933680553,
   // lng: 104.11315981359179,
+  // lat: 1.118160414526369,
+  // lng: 104.04857401962516,
 };
-const RADIUS_METER = 100; // radius area absensi yang diizinkan (meter)
+// ── Radius area absensi yang diizinkan ─────────────────────────
+const RADIUS_METER = 100;
 
+// ═══════════════════════════════════════════════════════════════
+// KOMPONEN MAP ABSENSI
+// ═══════════════════════════════════════════════════════════════
 export default function MapAbsensi({ onLocation }) {
   // Ref untuk mencegah map diinisialisasi lebih dari sekali
   const mapRef = useRef(null);
@@ -21,6 +30,7 @@ export default function MapAbsensi({ onLocation }) {
     onLocationRef.current = onLocation;
   }, [onLocation]);
 
+  // ── Inisialisasi peta — hanya sekali saat komponen mount ─────
   useEffect(() => {
     // Jika map sudah diinisialisasi, skip
     if (mapRef.current) return;
@@ -55,8 +65,7 @@ export default function MapAbsensi({ onLocation }) {
         // Pindahkan tampilan map ke posisi pengguna
         map.setView([lat, lng], 17);
 
-        // Kirim koordinat & akurasi ke komponen induk (Dashboard)
-        // Gunakan ref agar selalu memanggil versi terbaru tanpa re-run useEffect
+        // Kirim koordinat & akurasi ke komponen (Dashboard)
         onLocationRef.current({ lat, lng, accuracy });
       },
       (err) => {
@@ -70,10 +79,11 @@ export default function MapAbsensi({ onLocation }) {
       },
     );
 
-    // Simpan instance map ke ref agar tidak dibuat ulang
     mapRef.current = map;
-  }, []); // hanya dijalankan sekali saat komponen mount — onLocation via ref
-
+  }, []);
+  // ═══════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════
   return (
     <Box
       sx={{

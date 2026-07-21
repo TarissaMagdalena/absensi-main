@@ -1,4 +1,7 @@
-import { useState } from "react";
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR ADMIN — Navigasi kiri halaman admin
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Drawer,
@@ -15,6 +18,7 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
+import { api } from "../utils/api";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -24,6 +28,8 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import Badge from "@mui/material/Badge";
 
 const DRAWER_WIDTH = 240;
 
@@ -34,6 +40,22 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
 
   const iconStyle = { fontSize: 22, color: "#555" };
 
+  // ── Fetch jumlah pengajuan cuti yang menunggu ─────────────────────────────
+  const [jumlahMenunggu, setJumlahMenunggu] = useState(0);
+
+  useEffect(() => {
+    api
+      .get("/pengajuan-cuti")
+      .then((res) => {
+        const menunggu = (res.data || []).filter(
+          (d) => d.status === "Menunggu",
+        ).length;
+        setJumlahMenunggu(menunggu);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Daftar Menu Navigasi Admin ────────────────────────────────
   const menu = [
     {
       text: "Beranda",
@@ -44,6 +66,15 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
       text: "Jadwal Kerja",
       icon: <CalendarMonthIcon sx={iconStyle} />,
       path: "/admin/jadwal",
+    },
+    {
+      text: "Pengajuan Cuti",
+      path: "/admin/pengajuan-cuti",
+      icon: (
+        <Badge badgeContent={jumlahMenunggu} color="error">
+          <AssignmentTurnedInIcon />
+        </Badge>
+      ),
     },
     {
       text: "Data Absensi",
@@ -72,11 +103,13 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
     },
   ];
 
+  // Navigasi ke halaman + tutup sidebar jika mobile ──────────
   const handleNav = (path) => {
     navigate(path);
     if (isMobile) onClose();
   };
 
+  // Proses Logout ────────────────────────────────────────────
   const handleKonfirmasiKeluar = () => {
     localStorage.removeItem("user");
     navigate("/");
@@ -90,6 +123,7 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
     overflowY: "hidden",
   };
 
+  // Konten sidebar ────────────────────────────────────────────
   const drawerContent = (
     <Box
       sx={{
@@ -103,14 +137,15 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
         overflowY: "hidden",
       }}
     >
+      {/* ── Logo / Nama Aplikasi ── */}
       <Box sx={{ textAlign: "center", mt: 2, mb: 2 }}>
         <Typography variant="h5" fontWeight="bold">
           E-Absen
         </Typography>
       </Box>
-
       <Divider />
 
+      {/* ── Profil Admin ── */}
       <List sx={{ overflowX: "hidden", py: 0.8 }}>
         <ListItemButton
           disableRipple
@@ -135,9 +170,9 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
           </Typography>
         </ListItemButton>
       </List>
-
       <Divider />
 
+      {/* ── Daftar Menu Navigasi ── */}
       <List sx={{ flexGrow: 1, overflowX: "hidden" }}>
         {menu.map((item, index) => {
           const active = location.pathname === item.path;
@@ -173,9 +208,9 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
           );
         })}
       </List>
-
       <Divider />
 
+      {/* ── Tombol Keluar ── */}
       <List sx={{ overflowX: "hidden" }}>
         <ListItemButton
           onClick={() => setDialogKeluar(true)}
@@ -209,6 +244,7 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
   return (
     <>
       {isMobile ? (
+        // MOBILE: Drawer overlay — muncul di atas konten saat hamburger diklik
         <Drawer
           variant="temporary"
           open={open}
@@ -221,6 +257,7 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
           {drawerContent}
         </Drawer>
       ) : (
+        // DESKTOP: Drawer permanen — selalu terlihat di kiri
         <Drawer
           variant="permanent"
           sx={{
@@ -234,6 +271,7 @@ export default function SidebarAdmin({ open, onClose, isMobile }) {
         </Drawer>
       )}
 
+      {/* ── Dialog Konfirmasi Keluar ── */}
       <Dialog
         open={dialogKeluar}
         onClose={() => setDialogKeluar(false)}

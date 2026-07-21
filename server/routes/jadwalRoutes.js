@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// JADWAL ROUTES — Semua endpoint API jadwal shift pegawai
+// ═══════════════════════════════════════════════════════════════
 import express from "express";
 import multer from "multer";
 import path from "path";
@@ -10,7 +13,7 @@ function isValidBulan(bulan) {
   return /^\d{4}-\d{2}$/.test(bulan);
 }
 
-// ── Multer setup surat cuti ───────────────────────────────────────────────────
+// ── Multer: upload surat cuti saat Simpan Jadwal ──────────────────────────────
 const uploadDir = "uploads/surat_cuti";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -36,6 +39,7 @@ const uploadSuratCuti = multer({
 });
 
 // ================= GET SEMUA SHIFT =================
+// Ambil semua kode shift + jam masuk/pulang dari tabel shift
 router.get("/shift", async (req, res) => {
   try {
     const [data] = await db.query("SELECT * FROM shift ORDER BY id ASC");
@@ -46,6 +50,7 @@ router.get("/shift", async (req, res) => {
 });
 
 // ================= GET JADWAL PEGAWAI HARI INI =================
+// Ambil jadwal satu pegawai pada tanggal tertentu
 router.get("/pegawai/:pegawai_id", async (req, res) => {
   try {
     const { pegawai_id } = req.params;
@@ -70,6 +75,7 @@ router.get("/pegawai/:pegawai_id", async (req, res) => {
 });
 
 // ================= GET JADWAL BULAN TERTENTU =================
+// Ambil seluruh jadwal satu bulan untuk semua pegawai
 router.get("/", async (req, res) => {
   const { bulan } = req.query;
   if (!bulan)
@@ -136,6 +142,17 @@ router.post("/jatah-cuti", async (req, res) => {
 });
 
 // ================= SIMPAN JADWAL BULK =================
+// LOGIC CUTI (paling kompleks):
+//   1. Ambil semua CT di bulan ini (sebelum diupdate) → setCtLama
+//   2. Ambil semua CT baru dari request → setCtBaru
+//   3. CT DITAMBAH (ada di Baru tapi tidak di Lama):
+//      → INSERT absensi status=Cuti + surat_cuti
+//      → UPDATE jatah_cuti terpakai + 1
+//   4. CT DICABUT (ada di Lama tapi tidak di Baru):
+//      → DELETE absensi Cuti
+//      → UPDATE jatah_cuti terpakai - 1 (GREATEST untuk cegah negatif)
+//      → Hapus file surat cuti dari disk
+// ════════════════════════════════════════════════════════════════
 router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
   let bulan, jadwal;
   try {
@@ -150,6 +167,8 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
   }
 
   const suratMap = {};
+  // Kumpulkan file surat cuti dari request
+  // Field name: surat_cuti__{pegawai_id}|{tanggal}
   (req.files || []).forEach((file) => {
     const key = file.fieldname.replace("surat_cuti__", "");
     suratMap[key] = file.filename;
@@ -162,6 +181,8 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
     const tanggalList = [...new Set(jadwal.map((j) => j.tanggal))];
     const pegawaiIdList = [...new Set(jadwal.map((j) => j.pegawai_id))];
 
+    // ── Ambil data CT lama (sebelum update) ──────────────────────
+    // Untuk membandingkan dengan CT baru → deteksi yang ditambah/dicabut
     const [ctLama] = await conn.query(
       `SELECT pegawai_id, DATE_FORMAT(tanggal, '%Y-%m-%d') as tanggal
        FROM jadwal_pegawai
@@ -171,7 +192,8 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
     const setCtLama = new Set(
       ctLama.map((r) => `${r.pegawai_id}|${r.tanggal}`),
     );
-
+    // ── Simpan semua perubahan jadwal ─────────────────────────────
+    // INSERT OR UPDATE (upsert) untuk setiap sel yang berubah
     for (const j of jadwal) {
       if (j.shift_kode) {
         await conn.query(
@@ -195,13 +217,14 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
         .filter((j) => j.shift_kode === "CT")
         .map((j) => `${j.pegawai_id}|${j.tanggal}`),
     );
+    // ── CT DITAMBAH → insert absensi Cuti + potong jatah ─────────
     const ctDitambah = [...setCtBaru].filter((k) => !setCtLama.has(k));
+    // ── CT DICABUT → hapus absensi Cuti + kembalikan jatah ───────
     const ctDicabut = [...setCtLama].filter(
       (k) =>
         !setCtBaru.has(k) &&
         jadwal.some((j) => `${j.pegawai_id}|${j.tanggal}` === k),
     );
-
     for (const key of ctDitambah) {
       const [pegawaiId, tanggal] = key.split("|");
       const ketCT =
@@ -215,6 +238,7 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
       );
 
       if (existing.length === 0) {
+        // Insert absensi Cuti — is_from_jadwal = 1 (tidak bisa dihapus manual)
         await conn.query(
           `INSERT INTO absensi (pegawai_id, tanggal, status, keterangan, surat_cuti, is_from_jadwal) 
            VALUES (?, ?, 'Cuti', ?, ?, 1)`,
@@ -265,11 +289,13 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
         const p = `uploads/surat_cuti/${lama.surat_cuti}`;
         if (fs.existsSync(p)) fs.unlinkSync(p);
       }
+      // Hapus absensi Cuti dari database
       await conn.query(
         `DELETE FROM absensi WHERE pegawai_id = ? AND tanggal = ? AND status = 'Cuti'`,
         [pegawaiId, tanggal],
       );
       const tahun = tanggal.substring(0, 4);
+      // Kembalikan jatah cuti − 1 (GREATEST untuk cegah nilai negatif)
       await conn.query(
         `UPDATE jatah_cuti SET terpakai = GREATEST(0, terpakai - 1) WHERE pegawai_id = ? AND tahun = ?`,
         [pegawaiId, tahun],
@@ -296,6 +322,7 @@ router.post("/bulk", uploadSuratCuti.any(), async (req, res) => {
 });
 
 // ================= SALIN JADWAL BULAN LALU =================
+// Catatan: surat cuti TIDAK ikut disalin (by design)
 router.post("/salin", async (req, res) => {
   const { dari, ke } = req.body;
 
@@ -314,6 +341,7 @@ router.post("/salin", async (req, res) => {
   await conn.beginTransaction();
 
   try {
+    // Ambil semua jadwal bulan sumber
     const [sumber] = await conn.query(
       `SELECT pegawai_id, DATE_FORMAT(tanggal, '%Y-%m-%d') as tanggal, shift_kode, keterangan
        FROM jadwal_pegawai WHERE DATE_FORMAT(tanggal, '%Y-%m') = ?`,
@@ -343,7 +371,7 @@ router.post("/salin", async (req, res) => {
         tBulan - 1 + (bulanKe - bulanDari) + (tahunKe - tahunDari) * 12;
       let tahunBaru = tTahun + Math.floor(bulanBaru / 12);
       bulanBaru = ((bulanBaru % 12) + 12) % 12;
-      const maxHari = new Date(tahunBaru, bulanBaru + 1, 0).getDate();
+      const maxHari = new Date(tahunBaru, bulanBaru + 1, 0).getDate(); // jumlah hari bulan tujuan
       const hariBaru = Math.min(tHari, maxHari);
       const tglBaru = `${tahunBaru}-${String(bulanBaru + 1).padStart(2, "0")}-${String(hariBaru).padStart(2, "0")}`;
       return [j.pegawai_id, tglBaru, j.shift_kode, j.keterangan || null];
@@ -379,7 +407,7 @@ router.get("/download-pdf", async (req, res) => {
   }
 
   try {
-    // ── Ambil data ────────────────────────────────────────────────────────────
+    // ── Ambil data pegawai dan jadwal bulan ini ──────────────────────────────────────────────
     const [pegawaiList] = await db.query(
       "SELECT id, nama FROM pegawai ORDER BY nama ASC",
     );
@@ -407,7 +435,7 @@ router.get("/download-pdf", async (req, res) => {
     // ── Konstanta ─────────────────────────────────────────────────────────────
     const [tahun, bln] = bulan.split("-").map(Number);
     const jumlahHari = new Date(tahun, bln, 0).getDate();
-
+    // Tabel dengan kolom nama + 31 kolom tanggal
     const NAMA_BULAN = [
       "",
       "JANUARI",
@@ -458,7 +486,7 @@ router.get("/download-pdf", async (req, res) => {
     const BORDER_COLOR = [80, 80, 80];
     const BORDER_HEADER = [20, 20, 20];
 
-    // ── Init PDF ──────────────────────────────────────────────────────────────
+    // ── Generate PDF dengan PDFKit ────────────────────────────────
     const PDFDocument = (await import("pdfkit")).default;
     const doc = new PDFDocument({
       margin: 20,
@@ -495,7 +523,7 @@ router.get("/download-pdf", async (req, res) => {
       doc.rect(x, cy, w, h).strokeColor(borderColor).lineWidth(0.5).stroke();
     }
 
-    // ── JUDUL ─────────────────────────────────────────────────────────────────
+    // ── JUDUL / Header PDF ──────────────────────────────────────────────────────────────
     doc
       .font("Helvetica-Bold")
       .fontSize(14)
@@ -555,6 +583,7 @@ router.get("/download-pdf", async (req, res) => {
       });
 
     // Baris angka + nama hari
+    // Warna kolom berdasarkan hari dalam minggu
     tanggalList.forEach(({ d, hari }) => {
       const cx = tanggalStartX + (d - 1) * hariWidth;
       const isMinggu = hari === 0;
@@ -667,7 +696,7 @@ router.get("/download-pdf", async (req, res) => {
       });
     }
 
-    // ✅ Tampilkan satu per baris (vertikal ke bawah)
+    // Tampilkan satu per baris (vertikal ke bawah)
     legendItems.forEach((s) => {
       const bg = SHIFT_BG[s.kode] || [255, 255, 255];
       const jm = s.jam_masuk ? s.jam_masuk.slice(0, 5) : "";
@@ -699,7 +728,7 @@ router.get("/download-pdf", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-// UPDATE JAM SHIFT
+// UPDATE / EDIT JAM SHIFT: chip shift di navigasi
 router.put("/shift/:kode", async (req, res) => {
   try {
     const { kode } = req.params;

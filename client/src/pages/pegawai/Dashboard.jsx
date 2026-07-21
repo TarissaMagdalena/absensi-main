@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD PEGAWAI — Halaman absensi harian pegawai
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutPegawai from "../../layout/DashboardLayoutPegawai";
@@ -25,6 +28,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 
+// ── Warna kartu jadwal per kode shift ────────────────────────────────────────
 const SHIFT_COLORS = {
   P: { bg: "#e3f2fd", color: "#1565c0", border: "#90caf9" },
   PK: { bg: "#e8f5e9", color: "#2e7d32", border: "#a5d6a7" },
@@ -35,9 +39,10 @@ const SHIFT_COLORS = {
   L: { bg: "#f5f5f5", color: "#757575", border: "#e0e0e0" },
 };
 
+// ── Shift yang TIDAK memerlukan absensi ──────────────────────────────────────
 const SHIFT_TIDAK_ABSEN = ["L", "CT"];
 
-// 🔥 Helper: konversi "HH:MM" atau "HH:MM:SS" ke menit
+//  Helper: konversi "HH:MM" atau "HH:MM:SS" ke menit
 function timeToMinutes(timeStr) {
   if (!timeStr) return null;
   const [h, m] = timeStr.slice(0, 5).split(":").map(Number);
@@ -47,7 +52,7 @@ function timeToMinutes(timeStr) {
 export default function Dashboard() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
+  // ── Ambil data user dari localStorage ────────────────────────
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem("user")) || {};
@@ -55,31 +60,34 @@ export default function Dashboard() {
       return {};
     }
   })();
-
+  // ── State absensi ─────────────────────────────────────────────
   const [absenMasuk, setAbsenMasuk] = useState(null);
   const [statusMasuk, setStatusMasuk] = useState("Belum Absen");
   const [absenPulang, setAbsenPulang] = useState(null);
   const [statusPulang, setStatusPulang] = useState("Belum Absen");
-
+  // ── State modal ───────────────────────────────────────────────
   const [showModalMasuk, setShowModalMasuk] = useState(false);
   const [showModalPulang, setShowModalPulang] = useState(false);
   const [loadingMasuk, setLoadingMasuk] = useState(false);
   const [loadingPulang, setLoadingPulang] = useState(false);
-
+  // ── State lokasi GPS ──────────────────────────────────────────
   const [lokasi, setLokasi] = useState(null);
+  // ── State aktivitas + jadwal ──────────────────────────────────
   const [aktivitas, setAktivitas] = useState([]);
   const [jadwalHariIni, setJadwalHariIni] = useState(null);
   const [loadingJadwal, setLoadingJadwal] = useState(true);
-
-  // 🔥 State waktu sekarang — update setiap menit
+  // ── State waktu dari server ───────────────────────────────────
+  // nowMinutes = waktu sekarang dalam total menit (dari server, bukan perangkat)
+  // Diperbarui setiap 1 menit agar validasi waktu selalu akurat
   const [nowMinutes, setNowMinutes] = useState(null);
-
+  // ── Notifikasi ─────────────────────────────────────────────────
   const [notif, setNotif] = useState({
     open: false,
     message: "",
     severity: "success",
   });
-
+  // ── Computed: boleh absen pulang? ─────────────────────────────
+  // Hanya boleh pulang jika sudah absen masuk dengan status Hadir/Terlambat
   const bolehAbsenPulang =
     statusMasuk === "Hadir" || statusMasuk === "Terlambat";
 
@@ -95,7 +103,7 @@ export default function Dashboard() {
   });
   const pegawaiId = user?.pegawai_id;
 
-  // 🔥 Update nowMinutes setiap 1 menit
+  // ── Fetch waktu dari server setiap 1 menit ────────────────────
   useEffect(() => {
     const fetchServerTime = async () => {
       try {
@@ -117,7 +125,7 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Fetch jadwal ────────────────────────────────────────────────────────────
+  // ── Fetch jadwal shift hari ini ───────────────────────────────────────────────────
   useEffect(() => {
     if (!pegawaiId) return;
     setLoadingJadwal(true);
@@ -142,6 +150,7 @@ export default function Dashboard() {
         if (data.jam_masuk) {
           setAbsenMasuk(data.jam_masuk);
           setStatusMasuk(data.status);
+          // is_manual_admin: absensi dicatat admin → tampilkan badge khusus
           const keterangan = data.is_manual_admin
             ? "Diabsensi manual oleh admin"
             : data.keterangan ||
@@ -199,7 +208,7 @@ export default function Dashboard() {
   }, [pegawaiId]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🔥 LOGIKA VALIDASI WAKTU ABSENSI
+  //  VALIDASI WAKTU ABSENSI
   // ═══════════════════════════════════════════════════════════════════════════
   const getStatusWaktuAbsen = () => {
     if (
@@ -211,9 +220,9 @@ export default function Dashboard() {
     }
     const menitMasuk = timeToMinutes(jadwalHariIni.jam_masuk);
     const menitPulang = timeToMinutes(jadwalHariIni.jam_pulang);
-    const BATAS_AWAL = 60; // 🔥 1 jam sebelum jam masuk
+    const BATAS_AWAL = 60; // GANTI untuk ubah berapa menit sebelum shift absen bisa dibuka
 
-    const isShiftMalam = menitPulang < menitMasuk; // misal 19:00 - 07:00
+    const isShiftMalam = menitPulang < menitMasuk; // jam pulang < jam masuk = melewati tengah malam, misal 19:00 - 07:00
 
     if (isShiftMalam) {
       // Shift malam: aktif mulai 1 jam sebelum masuk (18:00) hingga jam pulang (07:00)
@@ -252,7 +261,7 @@ export default function Dashboard() {
 
   const statusWaktu = getStatusWaktuAbsen();
 
-  // ── Absen masuk ─────────────────────────────────────────────────────────────
+  // ── Submit Absen masuk ─────────────────────────────────────────────────────────────
   const handleSubmitAbsensi = async () => {
     if (loadingMasuk) return;
     if (!lokasi) {
@@ -322,7 +331,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Keterangan pulang ────────────────────────────────────────────────────────
+  // ── Hitung Keterangan pulang ────────────────────────────────────────────────────────
   const getKeteranganPulang = useCallback(
     (jamPulangAktual) => {
       if (!jamPulangAktual || !jadwalHariIni?.jam_pulang)
@@ -357,7 +366,7 @@ export default function Dashboard() {
     [jadwalHariIni],
   );
 
-  // ── Absen pulang ─────────────────────────────────────────────────────────────
+  // ── Submit Absen pulang ─────────────────────────────────────────────────────────────
   const handleSubmitPulang = async () => {
     if (loadingPulang) return;
     if (!lokasi) {

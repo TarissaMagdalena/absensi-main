@@ -1,9 +1,11 @@
+// ═══════════════════════════════════════════════════════════════
+// CUTI ROUTES — Manajemen jatah cuti pegawai per tahun
+// ═══════════════════════════════════════════════════════════════
 import express from "express";
 import { db } from "../db.js";
 
 const router = express.Router();
 
-// GET /api/cuti?tahun=2026
 // Ambil semua jatah cuti pegawai per tahun
 router.get("/", async (req, res) => {
   const tahun = req.query.tahun || new Date().getFullYear();
@@ -26,12 +28,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-// PUT /api/cuti
-// Simpan jatah cuti (upsert)
-// body: [{ pegawai_id, jatah, tahun }]
+// Simpan jatah cuti
 router.put("/", async (req, res) => {
   const { tahun, data } = req.body;
-
+  // ── Validasi data tidak kosong ────────────────────────────────
   if (!tahun || !Array.isArray(data) || data.length === 0) {
     return res.status(400).json({ message: "Data tidak lengkap" });
   }
@@ -51,8 +51,7 @@ router.put("/", async (req, res) => {
   }
 });
 
-// GET /api/cuti/pegawai/:pegawai_id?tahun=2026
-// Untuk ditampilkan di summary riwayat absensi pegawai
+// Ambil jatah cuti SATU pegawai untuk satu tahun
 router.get("/pegawai/:pegawai_id", async (req, res) => {
   const { pegawai_id } = req.params;
   const tahun = req.query.tahun || new Date().getFullYear();
@@ -70,6 +69,35 @@ router.get("/pegawai/:pegawai_id", async (req, res) => {
     res.json(rows[0] || { jatah: 12, terpakai: 0, sisa: 12 });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/cuti/jatah?pegawai_id=xxx
+router.get("/jatah", async (req, res) => {
+  const { pegawai_id } = req.query;
+  if (!pegawai_id)
+    return res.status(400).json({ message: "pegawai_id diperlukan" });
+
+  const tahun = new Date().getFullYear();
+  try {
+    let [[row]] = await db.query(
+      "SELECT jatah, terpakai FROM jatah_cuti WHERE pegawai_id = ? AND tahun = ?",
+      [pegawai_id, tahun],
+    );
+
+    // Buat default jika belum ada
+    if (!row) {
+      await db.query(
+        "INSERT INTO jatah_cuti (pegawai_id, tahun, jatah, terpakai) VALUES (?, ?, 12, 0)",
+        [pegawai_id, tahun],
+      );
+      row = { jatah: 12, terpakai: 0 };
+    }
+
+    res.json({ ...row, tahun, sisa: row.jatah - row.terpakai });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

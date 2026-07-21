@@ -1,6 +1,8 @@
-// src/utils/api.js
+// ═══════════════════════════════════════════════════════════════
+// API UTILITY — Helper request ke backend
+// ═══════════════════════════════════════════════════════════════
 import axios from "axios";
-
+// ── Base URL backend — GANTI jika deploy ke server lain ──────────────────────
 const BASE_URL = "http://localhost:5000/api";
 
 // ── Helper: auto-logout jika dapat 401 dan user sudah login ──────────────────
@@ -9,14 +11,11 @@ function handleUnauthorized() {
   window.location.href = "/";
 }
 
-// ── apiFetch — wrapper fetch native ─────────────────────────────────────────
-// Digunakan untuk request yang tidak perlu axios (simple GET/POST).
-// Mengembalikan Response object apa adanya — pemanggil yang handle error.
-// Jika 401 dan user sudah login → auto logout & redirect ke halaman login.
+// ── apiFetch — wrapper fetch native dengan auto-logout ─────────────────────────────────────────
 export async function apiFetch(url, options = {}) {
   const res = await fetch(url, options);
 
-  // Hanya auto-logout jika user sudah login sebelumnya (bukan saat proses login)
+  // Jika 401 DAN sudah pernah login → auto logout
   if (res.status === 401 && localStorage.getItem("user")) {
     handleUnauthorized();
     return null; // hentikan eksekusi pemanggil
@@ -25,14 +24,14 @@ export async function apiFetch(url, options = {}) {
   return res;
 }
 
-// ── api — axios instance ─────────────────────────────────────────────────────
+// ── api — axios instance dengan baseURL + interceptor  ──────────────────────────────────
 // Digunakan untuk request yang butuh fitur axios (multipart, interceptor, dll).
 // Base URL sudah dikonfigurasi — cukup tulis path relatif: api.get("/pegawai")
 export const api = axios.create({
   baseURL: BASE_URL,
 });
 
-// Interceptor response — tangkap 401 dan auto-logout
+// Interceptor response axios — tangkap 401 dan auto-logout
 api.interceptors.response.use(
   (res) => res, // response sukses — teruskan apa adanya
   (err) => {

@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════
+// INDEX.JS — Entry point backend server Express
+// ═══════════════════════════════════════════════════════════════
+
 import express from "express";
 import cors from "cors";
 import cron from "node-cron";
@@ -6,18 +10,21 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import pegawaiRoutes from "./routes/pegawaiRoutes.js";
 import absensiRoutes from "./routes/absensiRoutes.js";
-import pengajuanRoutes from "./routes/pengajuanRoutes.js";
 import jadwalRoutes from "./routes/jadwalRoutes.js";
 import laporanRoutes from "./routes/laporanRoutes.js";
 import cutiRoutes from "./routes/cutiRoutes.js";
+import pengajuanCutiRoutes from "./routes/pengajuanCutiRoutes.js";
 
 import { getWIBTime } from "./utils/getTime.js";
 import { processAlfa } from "./services/AlfaService.js";
 
 const app = express();
 
+// ── CORS — izinkan frontend mengakses backend ─────────────────
 app.use(cors());
+// ── JSON parser — baca body request sebagai JSON ──────────────
 app.use(express.json());
+// ── Static files — serve folder uploads ───────────────────────
 app.use("/uploads", express.static("uploads"));
 
 // ================= ROUTES =================
@@ -25,13 +32,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/pegawai", pegawaiRoutes);
 app.use("/api/absensi", absensiRoutes);
-app.use("/api/pengajuan", pengajuanRoutes);
+app.use("/api/pengajuan-cuti", pengajuanCutiRoutes);
 app.use("/api/jadwal", jadwalRoutes);
 app.use("/api/laporan", laporanRoutes);
 app.use("/api/cuti", cutiRoutes);
 
+// ════════════════════════════════════════════════════════════════
+// ENDPOINT WAKTU SERVER
+// ════════════════════════════════════════════════════════════════
 app.get("/api/time", async (req, res) => {
   try {
+    // Ambil waktu dari NTP/TimeAPI/Cloudflare (tidak dari jam server)
     const serverTime = await getWIBTime();
     res.json({ serverTime });
   } catch {
@@ -51,10 +62,12 @@ function toDateStr(date) {
   return date.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
 
+// ════════════════════════════════════════════════════════════════
+// CRON JOB — Alfa Otomatis
+// ════════════════════════════════════════════════════════════════
 // ================= CRON 1: Setiap jam — cek Alfa shift yang sudah selesai ====
 // Alfa ditandai 30 menit setelah jam PULANG shift, bukan jam masuk.
 // Logika: pegawai dianggap Alfa hanya setelah shiftnya benar-benar selesai,
-// untuk menghindari false-positive pada pegawai yang terlambat tapi tetap hadir.
 cron.schedule(
   "0 * * * *",
   async () => {
@@ -91,7 +104,6 @@ cron.schedule(
 // ================= CRON 2: Tengah malam — cleanup final kemarin ==============
 // Berjalan jam 00:00 WIB sebagai jaring pengaman.
 // Memastikan seluruh pegawai yang tidak hadir kemarin sudah tercatat Alfa,
-// termasuk yang mungkin terlewat oleh cron per jam.
 cron.schedule(
   "0 0 * * *",
   async () => {

@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════
+// DATABASE CONNECTION — Konfigurasi koneksi MySQL
+// Menggunakan mysql2/promise agar bisa menggunakan async/await tanpa callback
+// ═══════════════════════════════════════════════════════════════
+
 import mysql from "mysql2/promise";
 
 export const db = mysql.createPool({

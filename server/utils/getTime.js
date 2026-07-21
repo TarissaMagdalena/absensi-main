@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// GET TIME — Utilitas ambil waktu WIB dari sumber eksternal
+// ═══════════════════════════════════════════════════════════════
 import ntpClient from "ntp-client";
 
 // ── Helper: fetch dengan timeout ──────────────────────────────────────────────
@@ -86,7 +89,8 @@ export async function getWIBTime() {
     console.warn("[Time] ⚠️ HTTP Header Date gagal:", err.message);
   }
 
-  // Semua gagal
+  // Semua sumber gagal → lempar error khusus
+  // Prefix "WAKTU_TIDAK_TERSEDIA:" dipakai oleh absensiController
   console.error("[Time] ❌ Semua sumber waktu tidak tersedia");
   throw new Error(
     "WAKTU_TIDAK_TERSEDIA: Tidak dapat memverifikasi waktu. " +
@@ -95,6 +99,7 @@ export async function getWIBTime() {
 }
 
 // ── Export helper ─────────────────────────────────────────────────────────────
+// Konversi Date object ke string tanggal dan jam dalam WIB
 export function formatWIB(date) {
   return {
     today: date.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }),

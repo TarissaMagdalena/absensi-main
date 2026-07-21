@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// MANAJEMEN AKUN — Halaman admin untuk CRUD akun login
+// ═══════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -32,6 +35,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
+// ── Nilai awal form tambah akun ───────────────────────────────────────────────
 const FORM_INIT = { nama: "", username: "", password: "", role: "pegawai" };
 const NOTIF_INIT = { open: false, message: "", severity: "success" };
 
@@ -40,7 +44,7 @@ export default function ManajemenAkun() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const [akun, setAkun] = useState([]);
+  const [akun, setAkun] = useState([]); // daftar semua akun dari API
   const [form, setForm] = useState(FORM_INIT);
   const [notif, setNotif] = useState(NOTIF_INIT);
   const [dialogEdit, setDialogEdit] = useState(false);
@@ -51,7 +55,7 @@ export default function ManajemenAkun() {
   const closeNotif = () => setNotif((n) => ({ ...n, open: false }));
   const showNotif = (message, severity = "success") =>
     setNotif({ open: true, message, severity });
-
+  // ── Load daftar akun ───────────────────────────────────────────
   const loadAkun = () => {
     apiFetch("http://localhost:5000/api/users")
       .then((res) => res.json())
@@ -62,10 +66,10 @@ export default function ManajemenAkun() {
   useEffect(() => {
     loadAkun();
   }, []);
-
+  // ── Handle perubahan field form tambah ────────────────────────
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
+  // ── Tambah akun baru ──────────────────────────────────────────
   const handleSubmit = async () => {
     if (!form.nama || !form.username || !form.password) {
       showNotif("Lengkapi semua field!", "warning");
@@ -89,7 +93,7 @@ export default function ManajemenAkun() {
       showNotif("Gagal terhubung ke server", "error");
     }
   };
-
+  // ── Buka dialog edit ──────────────────────────────────────────
   const handleOpenEdit = (a) => {
     setEditData({
       id: a.id,
@@ -101,7 +105,7 @@ export default function ManajemenAkun() {
     setGantiPassword(false);
     setDialogEdit(true);
   };
-
+  // ── Simpan perubahan akun ─────────────────────────────────────
   const handleSimpanEdit = async () => {
     if (!editData.nama || !editData.username) {
       showNotif("Nama dan username wajib diisi", "warning");
@@ -138,7 +142,7 @@ export default function ManajemenAkun() {
       showNotif("Gagal terhubung ke server", "error");
     }
   };
-
+  // ── Hapus akun ────────────────────────────────────────────────
   const handleDelete = async () => {
     try {
       const res = await apiFetch(

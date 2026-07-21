@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD LAYOUT ADMIN — Template/kerangka halaman admin
+// ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import { Box, useMediaQuery, useTheme } from "@mui/material";
 import SidebarAdmin from "../components/SidebarAdmin";
@@ -11,6 +14,7 @@ export default function DashboardLayoutAdmin({ children }) {
   const [open, setOpen] = useState(false);
 
   return (
+    // ── Box terluar — background abu-abu seluruh halaman ─────────
     <Box
       sx={{
         px: { xs: 3, md: 3 },
@@ -25,7 +29,7 @@ export default function DashboardLayoutAdmin({ children }) {
         onClose={() => setOpen(false)}
         isMobile={isMobile}
       />
-
+      {/* ── Area konten utama (kanan sidebar) ── */}
       <Box
         component="main"
         sx={{
@@ -52,7 +56,7 @@ export default function DashboardLayoutAdmin({ children }) {
         }}
       >
         <Topbar onMenuClick={() => setOpen((prev) => !prev)} />
-
+        {/* ── Area konten halaman (children) ── */}
         <Box
           sx={{
             px: { xs: 2, md: 3 },

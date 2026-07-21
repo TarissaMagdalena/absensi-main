@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DATA PEGAWAI — Halaman admin untuk melihat & edit kontak pegawai
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
 import { api } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -37,7 +40,7 @@ export default function DataPegawai() {
   const [search, setSearch] = useState("");
   const [openEdit, setOpenEdit] = useState(false);
   const [editData, setEditData] = useState(null);
-  const [refresh, setRefresh] = useState(0);
+  const [refresh, setRefresh] = useState(0); // ── refresh — trick untuk trigger useEffect fetch ulang ──────
   const [notif, setNotif] = useState({
     open: false,
     message: "",
@@ -47,13 +50,15 @@ export default function DataPegawai() {
   const showNotif = (message, severity = "success") =>
     setNotif({ open: true, message, severity });
 
+  // ── Fetch data pegawai — diulang setiap refresh berubah ──────
   useEffect(() => {
     api
       .get("/pegawai")
       .then((res) => setPegawai(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.error("Gagal load pegawai:", err));
-  }, [refresh]);
+  }, [refresh]); // ← dependency refresh → jalan ulang setiap refresh berubah
 
+  // ── Filter pegawai di sisi frontend ──────────────────────────
   const filteredPegawai = pegawai.filter(
     (p) =>
       p.nama?.toLowerCase().includes(search.toLowerCase()) ||
@@ -66,6 +71,7 @@ export default function DataPegawai() {
     setOpenEdit(true);
   };
 
+  // ── Simpan perubahan kontak pegawai ──────────────────────────
   const handleEdit = async () => {
     try {
       await api.put(`/pegawai/${editData.id}`, editData);
@@ -80,7 +86,7 @@ export default function DataPegawai() {
     }
   };
 
-  // 🔥 Bottom sheet props untuk mobile
+  // ── Bottom sheet untuk dialog di mobile ──────────────────────
   const bottomSheetProps = {
     PaperProps: {
       sx: {
@@ -142,7 +148,7 @@ export default function DataPegawai() {
             </Typography>
           </Box>
 
-          {/* 🔥 CARD (mobile) / TABEL (desktop) */}
+          {/*  CARD (mobile) / TABEL (desktop) */}
           {isMobile ? (
             <Box>
               {filteredPegawai.length > 0 ? (

@@ -1,6 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// client/src/pages/admin/JadwalShift.jsx
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// JADWAL SHIFT — Halaman admin untuk mengelola jadwal kerja pegawai
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, memo, useMemo } from "react";
 import { apiFetch } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -44,6 +44,8 @@ import SaveIcon from "@mui/icons-material/Save";
 // ═══════════════════════════════════════════════════════════════════════════════
 // KONSTANTA
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Warna untuk setiap kode shift ────────────────────────────────────────────
 const SHIFT_COLORS = {
   P: { bg: "#e3f2fd", color: "#1565c0", border: "#90caf9" },
   PK: { bg: "#e8f5e9", color: "#2e7d32", border: "#a5d6a7" },
@@ -54,7 +56,10 @@ const SHIFT_COLORS = {
   L: { bg: "#f5f5f5", color: "#757575", border: "#e0e0e0" },
   "": { bg: "transparent", color: "#bbb", border: "#eee" },
 };
+
+// ── Shift yang bisa dipilih di dialog generate ────────────────────────────────
 const SHIFT_KERJA = ["PK", "MR", "MK", "PR", "CT"];
+
 const NAMA_HARI = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const NAMA_BULAN = [
   "Januari",
@@ -74,13 +79,18 @@ const NAMA_BULAN = [
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Jumlah hari dalam bulan ──────────────────────────────────────────
 const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+// ── Format bulan ke "YYYY-MM" ────────────────────────────────────────
 const formatBulan = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+// ── Ambil hari (0=Min, 6=Sab) dari string tanggal "YYYY-MM-DD" ───────
 const getHariDariTanggal = (tgl) => {
   const [y, m, d] = tgl.split("-").map(Number);
   return new Date(y, m - 1, d).getDay();
 };
 
+// ── Generate Pola A: rotasi shift dengan libur berkala ────────────────────────
 function generatePolaA(
   jumlahHari,
   urutanShift,
@@ -106,12 +116,15 @@ function generatePolaA(
   );
 }
 
+// ── Generate Pola B: 5 hari kerja (P), 2 hari libur (L) ─────────────────────
+// cycleOffset: posisi awal dalam siklus 7 hari (0-4=kerja, 5-6=libur)
 function generatePolaB(jumlahHari, cycleOffset) {
   return Array.from({ length: jumlahHari }, (_, d) =>
     (cycleOffset + d) % 7 < 5 ? "P" : "L",
   );
 }
 
+// ── Konfigurasi default generate per pegawai ─────────────────────────────────
 const defaultConfig = () => ({
   kelompok: "A",
   urutanShift: ["PK", "MR", "MK", "PR"],
@@ -124,6 +137,8 @@ const defaultConfig = () => ({
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUB-KOMPONEN
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── KeteranganInput — input alasan cuti dengan state lokal ───────────────────
 function KeteranganInput({ value, onChange }) {
   const [local, setLocal] = useState(value);
   return (
@@ -142,6 +157,7 @@ function KeteranganInput({ value, onChange }) {
   );
 }
 
+// ── buildMenuItems — buat daftar MenuItem untuk dropdown shift ────────────────
 function buildMenuItems(shiftList) {
   const items = [
     <MenuItem key="__empty__" value="">
@@ -210,6 +226,7 @@ function buildMenuItems(shiftList) {
   return items;
 }
 
+// ── ShiftCell — satu sel dropdown di grid jadwal ─────────────────────────────
 const ShiftCell = memo(function ShiftCell({
   kode,
   onChange,
@@ -260,6 +277,8 @@ const ShiftCell = memo(function ShiftCell({
         >
           {menuItems}
         </Select>
+
+        {/* Titik oranye = CT baru yang BELUM ada keterangan → perlu diisi saat Simpan */}
         {isCtBaru && (
           <Tooltip
             title="Keterangan cuti akan diisi saat Simpan"
@@ -279,6 +298,7 @@ const ShiftCell = memo(function ShiftCell({
             />
           </Tooltip>
         )}
+        {/* Titik hijau = CT yang SUDAH ada keterangan → hover untuk lihat keterangan */}
         {hasKet && (
           <Tooltip title={ketText} placement="top">
             <Box
@@ -301,6 +321,7 @@ const ShiftCell = memo(function ShiftCell({
   );
 });
 
+// ── ShiftRow — satu baris pegawai di grid jadwal ──────────────────────────────
 const ShiftRow = memo(function ShiftRow({
   pegawai,
   pi,
@@ -314,6 +335,7 @@ const ShiftRow = memo(function ShiftRow({
   const bg = pi % 2 === 0 ? "#fff" : "#f8fafc";
   return (
     <tr style={{ background: bg }}>
+      {/* Kolom nama pegawai — sticky agar tetap terlihat saat scroll horizontal */}
       <td
         style={{
           position: "sticky",
@@ -331,11 +353,14 @@ const ShiftRow = memo(function ShiftRow({
       >
         {pegawai.nama}
       </td>
+      {/* Loop semua tanggal → render ShiftCell untuk setiap tanggal */}
       {tanggalList.map(({ tgl, hari }) => {
         const ctKey = `${pegawai.id}|${tgl}`;
         const kode = grid[pegawai.id]?.[tgl] || "";
+        // isCtBaru: baru diganti ke CT DAN belum ada keterangan
         const isCtBaru =
           kode === "CT" && changes[ctKey] === "CT" && !ketGrid[ctKey];
+        // hasKet: sudah CT dan sudah ada keterangan
         const hasKet = kode === "CT" && !!ketGrid[ctKey];
         return (
           <ShiftCell
@@ -366,27 +391,34 @@ export default function JadwalShift() {
   const [tahun, setTahun] = useState(today.getFullYear());
   const [bulan, setBulan] = useState(today.getMonth());
 
+  // ── Data dari API ─────────────────────────────────────────────
   const [pegawaiList, setPegawaiList] = useState([]);
   const [shiftList, setShiftList] = useState([]);
+  // ── State grid jadwal ─────────────────────────────────────────
   const [grid, setGrid] = useState({});
   const [loading, setLoading] = useState(false);
+  // ── State perubahan yang belum disimpan ───────────────────────
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState({});
+  // ── State keterangan cuti di grid ────────────────────────────
   const [ketGrid, setKetGrid] = useState({});
+  // ── State file surat cuti ─────────────────────────────────────
   const [suratFiles, setSuratFiles] = useState({});
+  // ── State dialog ──────────────────────────────────────────────
   const [grupCT, setGrupCT] = useState([]);
-  const [jatahCuti, setJatahCuti] = useState({});
-  const [terpakaiCuti, setTerpakaiCuti] = useState({});
-  const [savingCuti, setSavingCuti] = useState(false);
-  const [salinDari, setSalinDari] = useState("");
-  const [genConfig, setGenConfig] = useState({});
-  const [editShift, setEditShift] = useState(null);
-
   const [dialogKonfirmasi, setDialogKonfirmasi] = useState(false);
   const [dialogSalin, setDialogSalin] = useState(false);
   const [dialogGen, setDialogGen] = useState(false);
   const [dialogEditShift, setDialogEditShift] = useState(false);
-
+  // ── State jatah cuti ─────────────────────────────────────────
+  const [jatahCuti, setJatahCuti] = useState({});
+  const [terpakaiCuti, setTerpakaiCuti] = useState({});
+  const [savingCuti, setSavingCuti] = useState(false);
+  // ── State salin + generate + edit shift ──────────────────────
+  const [salinDari, setSalinDari] = useState("");
+  const [genConfig, setGenConfig] = useState({});
+  const [editShift, setEditShift] = useState(null);
+  // ── Snackbar ──────────────────────────────────────────────────
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -395,10 +427,10 @@ export default function JadwalShift() {
   const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
   const closeSnackbar = () => setSnackbar((s) => ({ ...s, open: false }));
-
+  // ── menuItems: buat SEKALI, cache dengan useMemo ─────────────
   const menuItems = useMemo(() => buildMenuItems(shiftList), [shiftList]);
 
-  // 🔥 Bottom sheet props — dipakai Salin, Konfirmasi Cuti, Edit Shift
+  // ── Bottom sheet (dialog dari bawah) di mobile ───────────────
   const bottomSheetProps = {
     PaperProps: {
       sx: {
@@ -417,6 +449,9 @@ export default function JadwalShift() {
     },
   };
 
+  // ════════════════════════════════════════════════════════════
+  // FETCH DATA
+  // ════════════════════════════════════════════════════════════
   // ── Load data ────────────────────────────────────────────────────────────
   const loadPegawai = async () => {
     const res = await apiFetch("http://localhost:5000/api/pegawai");
@@ -474,6 +509,7 @@ export default function JadwalShift() {
     }
   }, [tahun]);
 
+  // ── useEffect: inisialisasi ───────────────────────────────────
   useEffect(() => {
     loadPegawai();
     loadShift();
@@ -495,7 +531,7 @@ export default function JadwalShift() {
     });
   }, [pegawaiList]);
 
-  // ── Edit shift ────────────────────────────────────────────────────────────
+  // ── Edit Jam Shift ────────────────────────────────────────────────────────────
   const handleKlikShift = (shift) => {
     setEditShift({
       kode: shift.kode,
@@ -505,6 +541,7 @@ export default function JadwalShift() {
     });
     setDialogEditShift(true);
   };
+  // ── Simpan perubahan jam shift ───────────────────────────────
   const handleSimpanShift = async () => {
     try {
       const res = await fetch(
@@ -529,7 +566,7 @@ export default function JadwalShift() {
     }
   };
 
-  // ── Jatah cuti ────────────────────────────────────────────────────────────
+  // ── Simpan Jatah cuti ────────────────────────────────────────────────────────────
   const handleSaveCuti = async () => {
     setSavingCuti(true);
     try {
@@ -555,7 +592,7 @@ export default function JadwalShift() {
     }
   };
 
-  // ── Perubahan sel ─────────────────────────────────────────────────────────
+  // ── Perubahan sel grid ─────────────────────────────────────────────────────────
   const handleChange = useCallback((pegawai_id, tanggal, shift_kode) => {
     const key = `${pegawai_id}|${tanggal}`;
     setGrid((prev) => ({
@@ -565,12 +602,13 @@ export default function JadwalShift() {
     setChanges((prev) => ({ ...prev, [key]: shift_kode }));
   }, []);
 
-  // ── Simpan jadwal ─────────────────────────────────────────────────────────
+  // ── Simpan jadwal ke server ─────────────────────────────────────────────────────────
   const handleSave = () => {
     if (Object.keys(changes).length === 0) {
       showSnackbar("Tidak ada perubahan untuk disimpan", "info");
       return;
     }
+    // Cari CT baru yang BELUM ada keterangan
     const ctBaru = Object.entries(changes)
       .filter(([, k]) => k === "CT")
       .filter(([key]) => !ketGrid[key])
@@ -579,6 +617,7 @@ export default function JadwalShift() {
         return { pegawai_id: Number(pid), tanggal: tgl };
       });
     if (ctBaru.length > 0) {
+      // Kelompokkan per pegawai untuk dialog konfirmasi
       const perPegawai = {};
       ctBaru.forEach(({ pegawai_id, tanggal }) => {
         if (!perPegawai[pegawai_id]) perPegawai[pegawai_id] = [];
@@ -614,6 +653,7 @@ export default function JadwalShift() {
         keterangan: ketMap[key] ?? ketGrid[key] ?? null,
       };
     });
+    // Kirim sebagai FormData agar bisa menyertakan file surat cuti
     try {
       const fd = new FormData();
       fd.append("bulan", formatBulan(tahun, bulan));
@@ -642,7 +682,8 @@ export default function JadwalShift() {
       setSaving(false);
     }
   };
-
+  // ── Konfirmasi simpan setelah keterangan cuti diisi ──────────
+  // Dipanggil dari tombol "Simpan Jadwal" di dialog konfirmasi
   const handleKonfirmasiSimpan = () => {
     const ketMap = {},
       suratMap = {};
@@ -657,7 +698,7 @@ export default function JadwalShift() {
     simpanJadwal(ketMap, suratMap);
   };
 
-  // ── Generate ──────────────────────────────────────────────────────────────
+  // ── Generate/Buat Jadwal Otomatis  ───────────────────────────────────────────────────────
   const handleGenerate = () => {
     const jumlahHari = getDaysInMonth(tahun, bulan);
     const newGrid = { ...grid },
@@ -665,6 +706,7 @@ export default function JadwalShift() {
     pegawaiList.forEach((p) => {
       const cfg = genConfig[p.id];
       if (!cfg) return;
+      // Pilih fungsi generate berdasarkan kelompok
       const shifts =
         cfg.kelompok === "A"
           ? generatePolaA(
@@ -690,7 +732,7 @@ export default function JadwalShift() {
     );
   };
 
-  // ── Salin ─────────────────────────────────────────────────────────────────
+  // ── Salin Jadwal dari Bulan Lain ────────────────────────────────────────────────────────────
   const handleSalin = async () => {
     if (!salinDari) return showSnackbar("Pilih bulan sumber dulu", "error");
     try {
@@ -737,7 +779,7 @@ export default function JadwalShift() {
       }),
     [tahun, bulan, jumlahHari],
   );
-
+  // Opsi bulan untuk dialog salin (6 bulan sebelumnya)
   const opsiSalin = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(tahun, bulan - i - 1, 1);
     return {
@@ -773,6 +815,7 @@ export default function JadwalShift() {
         );
   };
 
+  // Jumlah perubahan yang belum disimpan → ditampilkan di tombol Simpan
   const jumlahChanges = Object.keys(changes).length;
 
   // ═════════════════════════════════════════════════════════════════════════

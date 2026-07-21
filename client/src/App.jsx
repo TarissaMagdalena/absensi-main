@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// APP.JSX — Konfigurasi routing seluruh aplikasi
+// ═══════════════════════════════════════════════════════════════
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/login";
@@ -11,20 +14,20 @@ import LaporanAbsensi from "./pages/admin/LaporanAbsensi";
 import DataPegawai from "./pages/admin/DataPegawai";
 import ManajemenAkun from "./pages/admin/ManajemenAkun";
 import ProfilAdmin from "./pages/admin/Pengaturan";
+import PengajuanCutiAdmin from "./pages/admin/PengajuanCutiAdmin";
 
 // ── Pegawai ───────────────────────────────────────────────────────────────────
 import Dashboard from "./pages/Pegawai/Dashboard";
 import RekapKehadiran from "./pages/Pegawai/RekapKehadiran";
+import PengajuanCuti from "./pages/pegawai/PengajuanCuti";
 import PengaturanPegawai from "./pages/pegawai/PengaturanPegawai";
 
 function App() {
   return (
     <Routes>
-      {/* ── Halaman login (publik) ─────────────────────────────────────────── */}
+      {/* ── Halaman login ─────────────────────────────────────────── */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-
       <Route path="/login" element={<LoginGuard />} />
-
       {/* ── Route ADMIN — hanya bisa diakses role "admin" ─────────────────── */}
       <Route
         path="/admin/beranda"
@@ -82,7 +85,14 @@ function App() {
           </ProtectedRoute>
         }
       />
-
+      <Route
+        path="/admin/pengajuan-cuti"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <PengajuanCutiAdmin />
+          </ProtectedRoute>
+        }
+      />
       {/* ── Route PEGAWAI — hanya bisa diakses role "pegawai" ─────────────── */}
       <Route
         path="/beranda"
@@ -101,6 +111,14 @@ function App() {
         }
       />
       <Route
+        path="/pengajuan-cuti"
+        element={
+          <ProtectedRoute requiredRole="pegawai">
+            <PengajuanCuti />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/pengaturan"
         element={
           <ProtectedRoute requiredRole="pegawai">
@@ -108,7 +126,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* ── Catch-all: route tidak dikenal → redirect ke login ────────────── */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

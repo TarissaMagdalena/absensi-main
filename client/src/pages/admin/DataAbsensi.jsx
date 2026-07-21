@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// DATA ABSENSI — Halaman admin untuk CRUD data absensi pegawai
+// ═══════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../../utils/api";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -39,14 +42,15 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
+// ── Form kosong untuk reset setelah tambah/edit ───────────────────────────────
 const emptyForm = {
   pegawai_id: "",
   tanggal: "",
-  status: "Izin",
+  status: "",
   keterangan: "",
   shift_kode: "",
 };
-
+// ── Warna chip status absensi ───────────────────────────────────────────────
 const getStatusColor = (s) => {
   if (s === "Hadir") return "success";
   if (s === "Terlambat") return "warning";
@@ -55,7 +59,7 @@ const getStatusColor = (s) => {
   if (s === "Cuti") return "secondary";
   return "default";
 };
-
+// ── Format tanggal ke bahasa Indonesia ───────────────────────────────────────
 const formatTanggal = (tgl) =>
   new Date(tgl + "T00:00:00").toLocaleDateString("id-ID", {
     weekday: "long",
@@ -301,9 +305,13 @@ export default function DataAbsensi() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // ════════════════════════════════════════════════════════════
+  // STATE — semua state komponen
+  // ════════════════════════════════════════════════════════════
+
   // ── State data ──────────────────────────────────────────────────────────────
   const [data, setData] = useState([]);
-  const [pegawaiList, setPegawaiList] = useState([]);
+  const [pegawaiList, setPegawaiList] = useState([]); // daftar pegawai untuk dropdown
 
   // ── State filter ────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -320,17 +328,17 @@ export default function DataAbsensi() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [shiftOtomatis, setShiftOtomatis] = useState(null);
+  const [shiftOtomatis, setShiftOtomatis] = useState(null); // jadwal shift dari API
   const [loadingShift, setLoadingShift] = useState(false);
 
   // ── State upload surat ───────────────────────────────────────────────────────
-  const [suratFile, setSuratFile] = useState(null);
-  const [suratPreview, setSuratPreview] = useState(null);
+  const [suratFile, setSuratFile] = useState(null); // file yang dipilih
+  const [suratPreview, setSuratPreview] = useState(null); // preview file { type, url/name }
 
   // ── State dialog hapus ───────────────────────────────────────────────────────
   const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
 
-  // ── State snackbar ───────────────────────────────────────────────────────────
+  // ── State snackbar notifikasi ───────────────────────────────────────────────────────────
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -341,9 +349,13 @@ export default function DataAbsensi() {
 
   // ── State pagination ─────────────────────────────────────────────────────────
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
 
-  // ── Fetch absensi — useCallback agar bisa masuk dependency array ─────────────
+  // ════════════════════════════════════════════════════════════
+  // FETCH DATA
+  // ════════════════════════════════════════════════════════════
+
+  // ── Fetch absensi perbulan — useCallback: fungsi hanya dibuat ulang jika "bulan" berubah ─────────────
   const fetchAbsensi = useCallback(async () => {
     try {
       const res = await api.get(`/absensi?bulan=${bulan}`);
@@ -351,9 +363,9 @@ export default function DataAbsensi() {
     } catch (err) {
       console.error("Gagal fetch absensi:", err);
     }
-  }, [bulan]);
+  }, [bulan]); // ← re-create jika bulan berubah
 
-  // ── Fetch daftar pegawai — tidak bergantung state apapun ─────────────────────
+  // ── Fetch daftar pegawai untuk dropdown di form ─────────────────────
   const fetchPegawai = useCallback(async () => {
     try {
       const res = await api.get("/pegawai");
@@ -363,7 +375,7 @@ export default function DataAbsensi() {
     }
   }, []);
 
-  // ── Jalankan fetch saat komponen mount dan saat bulan berubah ────────────────
+  // ── Jalankan fetch saat komponen mount + saat bulan berubah ────────────────
   useEffect(() => {
     fetchAbsensi();
     fetchPegawai();
@@ -408,7 +420,7 @@ export default function DataAbsensi() {
     page * rowsPerPage,
   );
 
-  // ── Summary cards ─────────────────────────────────────────────────────────────
+  // ── Hitung Summary cards ─────────────────────────────────────────────────────────────
   const totalHadir = filteredData.filter((d) => d.status === "Hadir").length;
   const totalTerlambat = filteredData.filter(
     (d) => d.status === "Terlambat",
@@ -417,6 +429,8 @@ export default function DataAbsensi() {
     ["Izin", "Sakit", "Cuti", "Alfa"].includes(d.status),
   ).length;
 
+  // ── Cek apakah cuti berasal dari jadwal (tidak bisa dihapus manual) ──
+  // Jika is_from_jadwal=1 → tombol hapus diganti ikon info
   const isCutiDariJadwal = (item) =>
     item.status === "Cuti" && item.is_from_jadwal === 1;
 
@@ -425,13 +439,14 @@ export default function DataAbsensi() {
     setSuratPreview(null);
   };
 
+  // ── Buka dialog TAMBAH ────────────────────────────────────────
   const handleOpenTambah = () => {
     setEditId(null);
     setForm(emptyForm);
     resetFileState();
     setDialogOpen(true);
   };
-
+  // ── Buka dialog EDIT ──────────────────────────────────────────
   const handleOpenEdit = (item) => {
     setEditId(item.id);
     setForm({
@@ -445,6 +460,7 @@ export default function DataAbsensi() {
     setDialogOpen(true);
   };
 
+  // ── Handle pilih file surat ───────────────────────────────────
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -458,9 +474,30 @@ export default function DataAbsensi() {
 
   // ── Simpan absensi (tambah / edit) ───────────────────────────────────────────
   const handleSimpan = async () => {
+    // Validasi wajib isi
     if (!form.pegawai_id || !form.tanggal || !form.status) {
       return showSnackbar("Pegawai, tanggal, dan status wajib diisi", "error");
     }
+
+    if (!editId) {
+      const today = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Jakarta",
+      });
+
+      if (form.tanggal < today) {
+        return showSnackbar(
+          "Tidak dapat menginput absensi mundur (backdate). Pilih tanggal hari ini.",
+          "error",
+        );
+      }
+      if (form.tanggal > today) {
+        return showSnackbar(
+          "Tidak dapat menginput absensi untuk tanggal yang belum tiba.",
+          "error",
+        );
+      }
+    }
+    // Validasi jadwal wajib ada jika status Hadir
     if (form.status === "Hadir" && !shiftOtomatis) {
       return showSnackbar(
         "Pegawai tidak memiliki jadwal shift di tanggal ini. Periksa kembali jadwal shift pegawai.",
@@ -470,12 +507,14 @@ export default function DataAbsensi() {
     setSaving(true);
     try {
       if (editId) {
+        // ── MODE EDIT: hanya update status + keterangan ──────────
         await api.put(`/absensi/${editId}`, {
           status: form.status,
           keterangan: form.keterangan,
         });
         showSnackbar("Absensi berhasil diperbarui");
       } else {
+        // ── MODE TAMBAH: kirim FormData (karena ada file) ────────
         const formData = new FormData();
         formData.append("pegawai_id", form.pegawai_id);
         formData.append("tanggal", form.tanggal);
@@ -1137,6 +1176,16 @@ export default function DataAbsensi() {
                     setForm({ ...form, tanggal: e.target.value })
                   }
                   InputLabelProps={{ shrink: true }}
+                  // ✅ min dan max sama = hanya bisa pilih hari ini
+                  inputProps={{
+                    min: new Date().toLocaleDateString("en-CA", {
+                      timeZone: "Asia/Jakarta",
+                    }),
+                    max: new Date().toLocaleDateString("en-CA", {
+                      timeZone: "Asia/Jakarta",
+                    }),
+                  }}
+                  helperText="Absensi manual hanya dapat diinput untuk hari ini"
                 />
               )}
 

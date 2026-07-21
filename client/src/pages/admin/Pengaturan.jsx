@@ -1,3 +1,6 @@
+// ═══════════════════════════════════════════════════════════════
+// PENGATURAN ADMIN — Halaman ubah password untuk admin
+// ═══════════════════════════════════════════════════════════════
 import { useState } from "react";
 import axios from "axios";
 import DashboardLayoutAdmin from "../../layout/DashboardLayoutAdmin";
@@ -15,11 +18,11 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
-// ─── Konstanta ────────────────────────────────────────────────────────────────
+// ─── Nilai awal form + notif ────────────────────────────────────────────────────────────────
 const FORM_INIT = { currentPassword: "", newPassword: "", confirmPassword: "" };
 const NOTIF_INIT = { open: false, message: "", severity: "success" };
 
-// Mapping skor kekuatan → warna MUI token dan hex
+// ── Mapping skor kekuatan password ke label + warna ──────────────────────────
 const STRENGTH_MAP = [
   { label: "Lemah", muiColor: "error.main", hex: "#e53935" },
   { label: "Lemah", muiColor: "error.main", hex: "#e53935" },
@@ -30,24 +33,22 @@ const STRENGTH_MAP = [
 
 // ─── Komponen utama ───────────────────────────────────────────────────────────
 export default function Pengaturan() {
-  // Ambil data user dari localStorage (disimpan saat login)
+  // Ambil data user dari localStorage → dibutuhkan untuk request ganti password
   const user = JSON.parse(localStorage.getItem("user"));
 
   const [form, setForm] = useState(FORM_INIT);
   const [notif, setNotif] = useState(NOTIF_INIT);
   const [loading, setLoading] = useState(false);
+  const [strength, setStrength] = useState(0); // Skor kekuatan password (0–4)
 
-  // Visibility toggle untuk masing-masing field password
+  // Toggle visibility per field (current/new/confirm)
   const [showPw, setShowPw] = useState({
     current: false,
     new: false,
     confirm: false,
   });
 
-  // Skor kekuatan password (0–4)
-  const [strength, setStrength] = useState(0);
-
-  // ── Derived values dari strength ────────────────────────────────────────────
+  // Derived: ambil label, warna MUI, dan warna hex berdasarkan skor
   const {
     label: strengthLabel,
     muiColor: strengthMui,
@@ -65,6 +66,12 @@ export default function Pengaturan() {
     setShowPw((prev) => ({ ...prev, [field]: !prev[field] }));
 
   // ── Hitung skor kekuatan password ───────────────────────────────────────────
+  // Skor naik 1 untuk setiap kriteria yang terpenuhi:
+  //   1. Panjang >= 8 karakter
+  //   2. Ada huruf besar
+  //   3. Ada angka
+  //   4. Ada simbol (bukan huruf/angka)
+  // TAMBAH kriteria: tambah if + score++ di sini
   const calcStrength = (pass) => {
     let score = 0;
     if (pass.length >= 8) score++; // minimal 8 karakter
@@ -115,8 +122,8 @@ export default function Pengaturan() {
       });
 
       showNotif("✅ Kata Sandi berhasil diubah!");
-      setForm(FORM_INIT);
-      setStrength(0);
+      setForm(FORM_INIT); // ← reset form setelah berhasil
+      setStrength(0); // ← reset indikator kekuatan
     } catch (err) {
       const msg = err.response?.data?.message || "Gagal update password!";
       showNotif(msg, "error");
