@@ -207,7 +207,8 @@ export const absenMasuk = async (req, res) => {
 
     if (menitMenunggu > BATAS_AWAL_MENIT) {
       return res.status(400).json({
-        message: `Terlalu awal untuk absen. Shift ${shift_kode} (${jadwal.nama}) mulai jam ${jadwal.jam_masuk.slice(0, 5)} WIB. Absen dibuka ${BATAS_AWAL_MENIT} menit sebelumnya.`,
+        message: `Terlalu awal untuk absen. Shift ${shift_kode} (${jadwal.nama}) mulai jam 
+        ${jadwal.jam_masuk.slice(0, 5)} WIB. Absen dibuka ${BATAS_AWAL_MENIT} menit sebelumnya.`,
       });
     }
 
